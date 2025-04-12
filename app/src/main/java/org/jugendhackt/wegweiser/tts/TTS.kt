@@ -17,7 +17,7 @@ class TTS(context: Context) {
             if (status == TextToSpeech.SUCCESS) {
                 val langResult = textToSpeech.setLanguage(Locale.GERMANY)
                 if (langResult == TextToSpeech.LANG_MISSING_DATA || langResult == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    Log.e("TTS", "Sprache nicht unterstützt oder Daten fehlen.")
+                    Log.e("TTS", "Language not supported or data missing.")
                 }
             } else {
                 throw RuntimeException("Failed to initialize TextToSpeech: $status")
