@@ -11,17 +11,16 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.annotation.RequiresPermission
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
@@ -56,20 +55,25 @@ class MainActivity : ComponentActivity() {
         setContent {
             WegweiserTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    var counter by remember { mutableIntStateOf(0) }
-                    Column(Modifier.padding(innerPadding)) {
-                        Button(onClick = {
-                            counter++
-                        }) {
-                            Text("Click me")
-                        }
-                        Button(onClick = {
-                            counter = 0
-                        }) {
-                            Text("Reset")
-                        }
-                        Text("Latitude: ${viewModel.latitude}")
-                        Text("Longitude: ${viewModel.longitude}")
+                    // Beispielhaftes ViewModel; falls nicht vorhanden, ggf. anpassen oder entfernen
+                    val viewModel by viewModels<MainViewModel>()
+
+                    Column(
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                    ) {
+                        Text(
+                            text = "Play/Pause",
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+
+                        // Hier wird der Play/Pause-Button aufgerufen:
+                        PlayPauseButton()
+
+                        Spacer(modifier = Modifier.height(24.dp))
                     }
                 }
             }
@@ -172,5 +176,36 @@ class MainActivity : ComponentActivity() {
                 Manifest.permission.ACCESS_COARSE_LOCATION
             )
         )
+    }
+}
+
+@Composable
+fun PlayPauseButton() {
+    var isPlaying by remember { mutableStateOf(false) }
+    // Erhalte die aktuelle Bildschirmbreite
+    val configuration = LocalConfiguration.current
+    val screenWidth = configuration.screenWidthDp.dp
+    // Setze die Button-Größe auf 40% der Bildschirmbreite
+    val buttonSize = screenWidth * 0.4f
+    // Wähle die Icon-Größe als 75% des Button-Durchmessers
+    val iconSize = buttonSize * 0.75f
+
+    IconButton(
+        onClick = { isPlaying = !isPlaying },
+        modifier = Modifier.size(buttonSize)
+    ) {
+        if (isPlaying) {
+            Icon(
+                imageVector = Icons.Outlined.Pause,
+                contentDescription = "Pause",
+                modifier = Modifier.size(iconSize)
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Outlined.PlayArrow,
+                contentDescription = "Play",
+                modifier = Modifier.size(iconSize)
+            )
+        }
     }
 }

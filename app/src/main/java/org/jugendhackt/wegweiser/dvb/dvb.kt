@@ -6,15 +6,43 @@ import kotlinx.serialization.*
 import kotlinx.serialization.json.*
 import okhttp3.*
 import java.io.IOException
-import java.time.Instant
-import java.time.LocalDateTime
-import java.time.ZoneId
+import java.time.*
+import java.time.format.DateTimeFormatter
 
 @Serializable
 data class Departure(val line: String, val direction: String, val arrival: Int)
 
 @Serializable
 data class StopResult(val name: String, val city: String? = null, val coords: List<Double>? = null)
+
+@Serializable
+data class AddressResult(val city: String, val address: String)
+
+@Serializable
+data class Pin(val id: String, val name: String, val lat: Double, val lng: Double, val connections: String? = null)
+
+@Serializable
+data class RouteLeg(
+    val mode: String,
+    val line: String,
+    val direction: String,
+    val departure: RoutePoint,
+    val arrival: RoutePoint
+)
+
+@Serializable
+data class RoutePoint(
+    val stop: String,
+    val time: String,
+    val coords: String
+)
+
+@Serializable
+data class TripResult(
+    val origin: String,
+    val destination: String,
+    val trips: List<JsonObject>
+)
 
 class Dvb {
 
@@ -36,22 +64,15 @@ class Dvb {
 
         return try {
             client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    println("Fehler: ${response.code}")
-                    return null
-                }
+                if (!response.isSuccessful) return null
                 val body = response.body?.string() ?: return null
                 val raw = json.decodeFromString<List<List<String>>>(body)
                 raw.map {
-                    Departure(
-                        line = it[0],
-                        direction = it[1],
-                        arrival = it[2].toIntOrNull() ?: 0
-                    )
+                    Departure(it[0], it[1], it[2].toIntOrNull() ?: 0)
                 }
             }
         } catch (e: IOException) {
-            println("Fehler beim Abrufen der Daten: $e")
+            println("Fehler beim Monitor: $e")
             null
         }
     }
@@ -73,10 +94,6 @@ class Dvb {
 
         return try {
             client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) {
-                    println("Fehler: ${response.code}")
-                    return null
-                }
                 val body = response.body?.string() ?: return null
                 val jsonTree = json.parseToJsonElement(body).jsonObject
                 val points = jsonTree["stopFinder"]?.jsonObject?.get("points") ?: return null
@@ -95,19 +112,143 @@ class Dvb {
                     val coordsRaw = obj["ref"]?.jsonObject?.get("coords")?.jsonPrimitive?.content
                     val coords = coordsRaw?.split(",")?.mapNotNull { it.toIntOrNull()?.div(1_000_000.0) }
 
-                    StopResult(name = name, city = city, coords = coords)
+                    StopResult(name, city, coords)
                 }
             }
         } catch (e: IOException) {
-            println("Fehler bei der Anfrage: $e")
+            println("Fehler bei Find: $e")
             null
         }
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    fun timestampToDateTime(unix: Long): LocalDateTime {
-        return LocalDateTime.ofInstant(Instant.ofEpochSecond(unix), ZoneId.systemDefault())
+    suspend fun route(origin: String, destination: String, cityOrigin: String = "Dresden", cityDestination: String = "Dresden", time: LocalDateTime = LocalDateTime.now(), deparr: String = "dep"): TripResult? {
+        val url = HttpUrl.Builder()
+            .scheme("http")
+            .host("efa.vvo-online.de")
+            .port(8080)
+            .addPathSegments("dvb/XML_TRIP_REQUEST2")
+            .addQueryParameter("sessionID", "0")
+            .addQueryParameter("requestID", "0")
+            .addQueryParameter("language", "de")
+            .addQueryParameter("execInst", "normal")
+            .addQueryParameter("command", "")
+            .addQueryParameter("ptOptionsActive", "-1")
+            .addQueryParameter("itDateDay", time.dayOfMonth.toString())
+            .addQueryParameter("itDateMonth", time.monthValue.toString())
+            .addQueryParameter("itDateYear", time.year.toString())
+            .addQueryParameter("itdTimeHour", time.hour.toString())
+            .addQueryParameter("idtTimeMinute", time.minute.toString())
+            .addQueryParameter("place_origin", cityOrigin)
+            .addQueryParameter("name_origin", origin)
+            .addQueryParameter("place_destination", cityDestination)
+            .addQueryParameter("name_destination", destination)
+            .addQueryParameter("itdTripDateTimeDepArr", deparr)
+            .addQueryParameter("outputFormat", "JSON")
+            .addQueryParameter("coordOutputFormat", "WGS84")
+            .addQueryParameter("coordOutputFormatTail", "0")
+            .build()
+
+        val request = Request.Builder().url(url).build()
+
+        return try {
+            client.newCall(request).execute().use { response ->
+                val body = response.body?.string() ?: return null
+                val tree = json.parseToJsonElement(body).jsonObject
+                TripResult(
+                    origin = tree["origin"]?.jsonObject?.get("points")?.jsonObject?.get("point")?.jsonObject?.get("name")?.jsonPrimitive?.content
+                        ?: "Unbekannt",
+                    destination = tree["destination"]?.jsonObject?.get("points")?.jsonObject?.get("point")?.jsonObject?.get("name")?.jsonPrimitive?.content
+                        ?: "Unbekannt",
+                    trips = tree["trips"]?.jsonArray?.map { it.jsonObject } ?: emptyList()
+                )
+            }
+        } catch (e: IOException) {
+            println("Fehler bei Route: $e")
+            null
+        }
     }
 
-    // Mehr Funktionen wie `route()`, `address()`, `pins()` usw. können ebenfalls eingebaut werden.
+    suspend fun pins(swlat: Double, swlng: Double, nelat: Double, nelng: Double, pintypes: String = "stop"): List<Pin>? {
+        val url = HttpUrl.Builder()
+            .scheme("https")
+            .host("www.dvb.de")
+            .addPathSegments("apps/map/pins")
+            .addQueryParameter("showlines", "true")
+            .addQueryParameter("swlat", swlat.toInt().toString())
+            .addQueryParameter("swlng", swlng.toInt().toString())
+            .addQueryParameter("nelat", nelat.toInt().toString())
+            .addQueryParameter("nelng", nelng.toInt().toString())
+            .addQueryParameter("pintypes", pintypes)
+            .build()
+
+        val request = Request.Builder().url(url).build()
+
+        return try {
+            client.newCall(request).execute().use { response ->
+                val body = response.body?.string() ?: return null
+                body.split("\n").mapNotNull { line ->
+                    val parts = line.split("||")
+                    if (parts.size < 2) return@mapNotNull null
+                    val id = parts[0].split("|||")[0]
+                    val data = parts[1].split("|")
+                    val name = data[1]
+                    val lat = data[2].toIntOrNull()?.div(1_000_000.0) ?: return@mapNotNull null
+                    val lng = data[3].toIntOrNull()?.div(1_000_000.0) ?: return@mapNotNull null
+                    val connections = parts.getOrNull(2)
+                    Pin(id, name, lat, lng, connections)
+                }
+            }
+        } catch (e: IOException) {
+            println("Fehler bei Pins: $e")
+            null
+        }
+    }
+
+    suspend fun address(lat: Double, lng: Double): AddressResult? {
+        val url = HttpUrl.Builder()
+            .scheme("https")
+            .host("www.dvb.de")
+            .addPathSegments("apps/map/address")
+            .addQueryParameter("lat", lat.toInt().toString())
+            .addQueryParameter("lng", lng.toInt().toString())
+            .build()
+
+        val request = Request.Builder().url(url).build()
+
+        return try {
+            client.newCall(request).execute().use { response ->
+                val body = response.body?.string() ?: return null
+                val parts = body.split("|")
+                if (parts.size >= 2) AddressResult(parts[0], parts[1]) else null
+            }
+        } catch (e: IOException) {
+            println("Fehler bei Adresse: $e")
+            null
+        }
+    }
+
+    suspend fun poiCoords(poiId: String): Pair<Double, Double>? {
+        val url = HttpUrl.Builder()
+            .scheme("https")
+            .host("www.dvb.de")
+            .addPathSegments("apps/map/coordinates")
+            .addQueryParameter("id", poiId)
+            .build()
+
+        val request = Request.Builder().url(url).build()
+
+        return try {
+            client.newCall(request).execute().use { response ->
+                val body = response.body?.string() ?: return null
+                val coords = body.split("|").mapNotNull { it.toIntOrNull() }
+                if (coords.size >= 2) {
+                    Pair(coords[0] / 1_000_000.0, coords[1] / 1_000_000.0)
+                } else null
+            }
+        } catch (e: IOException) {
+            println("Fehler bei POI-Koordinaten: $e")
+            null
+        }
+    }
 }
