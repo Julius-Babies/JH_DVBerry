@@ -1,13 +1,10 @@
 package org.jugendhackt.wegweiser
 
-import android.os.Build
 import android.os.Bundle
-import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Button
@@ -21,18 +18,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import kotlinx.coroutines.launch
 import org.jugendhackt.wegweiser.ui.theme.WegweiserTheme
-import java.util.Locale
+import org.jugendhackt.wegweiser.tts.TTS
 
-class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
+class MainActivity : ComponentActivity() {
 
-    private lateinit var tts: TextToSpeech
-    private var isTtsReady = false
+    private lateinit var tts: TTS
 
-    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        tts = TextToSpeech(this, this)
+        // Initialisiere Text-to-Speech (TTS)
+        tts = TTS(this)
+        tts.initialize() // Initialisiere das TTS
 
         enableEdgeToEdge()
         setContent {
@@ -48,10 +45,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
                         Button(onClick = {
                             scope.launch {
-                                viewModel.testText.value = "Sie Huhrensohn!"
-                                if (isTtsReady) {
-                                    tts.speak(viewModel.testText.value, TextToSpeech.QUEUE_FLUSH, null, null)
-                                }
+                                tts.speak("Hallo Welt")
                             }
                         }) {
                             Text("SAY TEST text")
@@ -60,22 +54,5 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
                 }
             }
         }
-    }
-
-    override fun onInit(status: Int) {
-        if (status == TextToSpeech.SUCCESS) {
-            val result = tts.setLanguage(Locale.GERMAN)
-            isTtsReady = result != TextToSpeech.LANG_MISSING_DATA && result != TextToSpeech.LANG_NOT_SUPPORTED
-        } else {
-            isTtsReady = false
-        }
-    }
-
-    override fun onDestroy() {
-        if (::tts.isInitialized) {
-            tts.stop()
-            tts.shutdown()
-        }
-        super.onDestroy()
     }
 }
