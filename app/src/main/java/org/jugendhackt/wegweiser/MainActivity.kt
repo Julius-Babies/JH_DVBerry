@@ -1,5 +1,6 @@
 package org.jugendhackt.wegweiser
 
+import android.annotation.SuppressLint
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -28,7 +29,7 @@ class MainActivity : ComponentActivity() {
                     val viewModel by viewModels<MainViewModel>()
                     var counter = remember { mutableStateOf(0) }
                     Column {
-                        Greeting(
+                        nmbrView(
                             name = "Android (Counter: ${counter.value})",
                             modifier = Modifier.padding(innerPadding)
                         )
@@ -50,19 +51,21 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun Greeting(name: String = "Fuck Nazis!", modifier: Modifier = Modifier) {
+fun nmbrView(name: String = "Rechnen...", modifier: Modifier = Modifier) {
     Text(
         text = name,  // Or text :)
         modifier = modifier
     )
+
 }
 
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
     WegweiserTheme {
         Scaffold {
-            Greeting("Android")
+            Text("Hello Data")
         }
     }
 }
