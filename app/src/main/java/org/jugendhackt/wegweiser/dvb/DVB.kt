@@ -37,7 +37,7 @@ data class Haltestelle(
         @SerialName("Platform") val platform: Platform,
         @SerialName("RealTime") val realTime: String? = null,
         @SerialName("ScheduledTime") val scheduleTime: String,
-        @SerialName("State") val state: String,
+        @SerialName("State") val state: String? = null,
     ) {
         @Serializable
         data class Platform(

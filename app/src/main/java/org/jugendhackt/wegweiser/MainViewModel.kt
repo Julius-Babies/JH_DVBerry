@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import org.jugendhackt.wegweiser.dvb.DVBSource
 import org.jugendhackt.wegweiser.tts.TTS
 import java.time.LocalTime
+import kotlin.math.abs
 import kotlin.math.sqrt
 
 class MainViewModel(
@@ -94,6 +95,14 @@ data class Station(
                 append(it.platformType)
                 append(" ")
                 append(it.platformName)
+                if (it.isCancelled) append(" fällt heute aus")
+                else if (it.delayInMinutes != 0) {
+                    append(", heute ")
+                    if (abs(it.delayInMinutes) == 1) append(" eine Minute ")
+                    else append(" ${abs(it.delayInMinutes)} Minuten ")
+                    if (it.delayInMinutes > 0) append(" später")
+                    else append(" früher")
+                }
                 append(". ")
             }
         }

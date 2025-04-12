@@ -26,6 +26,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -136,7 +137,7 @@ class MainActivity : ComponentActivity() {
                                                         append(") ")
                                                         if (departure.isCancelled) append(" Entfall")
                                                         else if (departure.delayInMinutes > 0) append(" +${departure.delayInMinutes}min")
-                                                        else if (departure.delayInMinutes < 0) append(" -${departure.delayInMinutes}min")
+                                                        else if (departure.delayInMinutes < 0) append(" ${departure.delayInMinutes}min")
                                                     }
                                                 }
                                             )
@@ -259,8 +260,8 @@ fun ColumnScope.PlayPauseButton(
         ) { isPlaying ->
             if (isPlaying) {
                 Icon(
-                    imageVector = Icons.Outlined.Pause,
-                    contentDescription = "Pause",
+                    imageVector = Icons.Outlined.Stop,
+                    contentDescription = "Stop",
                     modifier = Modifier
                         .padding(24.dp)
                         .fillMaxSize()
