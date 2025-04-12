@@ -36,9 +36,9 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
+fun Greeting(name: String = "Fuck Nazis!", modifier: Modifier = Modifier) {
     Text(
-        text = "Fuck Nazis!",
+        text = name,  // Or text :)
         modifier = modifier
     )
 }
