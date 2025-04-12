@@ -5,17 +5,17 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import org.jugendhackt.wegweiser.ui.theme.WegweiserTheme
 
 class MainActivity : ComponentActivity() {
@@ -25,23 +25,25 @@ class MainActivity : ComponentActivity() {
         setContent {
             WegweiserTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    // Beispielhaftes ViewModel; falls nicht vorhanden, ggf. anpassen oder entfernen
                     val viewModel by viewModels<MainViewModel>()
-                    var counter = remember { mutableStateOf(0) }
-                    Column {
+
+                    Column(
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                    ) {
                         Greeting(
-                            name = "Android (Counter: ${counter.value})",
-                            modifier = Modifier.padding(innerPadding)
+                            name = "Play/Pause",
+                            modifier = Modifier.padding(bottom = 16.dp)
                         )
-                        Button(onClick = {
-                            counter.value = counter.value + 1
-                        }) {
-                            Text("Click me")
-                        }
-                        Button(onClick = {
-                            counter.value = 0
-                        }) {
-                            Text("Reset")
-                        }
+
+                        // Hier wird der Play/Pause-Button aufgerufen:
+                        PlayPauseButton()
+
+                        Spacer(modifier = Modifier.height(24.dp))
                     }
                 }
             }
@@ -52,15 +54,46 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun Greeting(name: String = "Fuck Nazis!", modifier: Modifier = Modifier) {
     Text(
-        text = name,  // Or text :)
+        text = name,
         modifier = modifier
     )
+}
+
+@Composable
+fun PlayPauseButton() {
+    var isPlaying by remember { mutableStateOf(false) }
+    // Erhalte die aktuelle Bildschirmbreite
+    val configuration = LocalConfiguration.current
+    val screenWidth = configuration.screenWidthDp.dp
+    // Setze die Button-Größe auf 40% der Bildschirmbreite
+    val buttonSize = screenWidth * 0.4f
+    // Wähle die Icon-Größe als 75% des Button-Durchmessers
+    val iconSize = buttonSize * 0.75f
+
+    IconButton(
+        onClick = { isPlaying = !isPlaying },
+        modifier = Modifier.size(buttonSize)
+    ) {
+        if (isPlaying) {
+            Icon(
+                imageVector = Icons.Outlined.Pause,
+                contentDescription = "Pause",
+                modifier = Modifier.size(iconSize)
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Outlined.PlayArrow,
+                contentDescription = "Play",
+                modifier = Modifier.size(iconSize)
+            )
+        }
+    }
 }
 
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
     WegweiserTheme {
-            Greeting("Android")
+        Greeting("Android")
     }
 }
