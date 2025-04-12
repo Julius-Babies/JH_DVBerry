@@ -10,6 +10,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresPermission
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
@@ -18,16 +20,20 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import com.google.android.gms.location.FusedLocationProviderClient
@@ -78,28 +84,51 @@ class MainActivity : ComponentActivity() {
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .weight(1f)
-                                    .verticalScroll(rememberScrollState())
-                                    .padding(16.dp)
                             ) {
-                                viewModel.nearestStops.firstOrNull()?.let {
-                                    Text(
-                                        text = it.name,
-                                        modifier = Modifier.padding(bottom = 16.dp)
-                                    )
-                                    Text(
-                                        text = buildString {
-                                            append("Nächste Abfahrten:\n")
-                                            it.departures.forEachIndexed { i, departure ->
-                                                if (i > 0) append("\n")
-                                                append(departure.line)
-                                                append(": ")
-                                                append(departure.destination)
-                                                append(" (")
-                                                append(departure.time)
-                                                append(") ")
-                                            }
+                                AnimatedContent(
+                                    targetState = viewModel.nearestStops.isEmpty()
+                                ) { isLoading ->
+                                    if (isLoading) {
+                                        Box(
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier
+                                                    .padding(24.dp)
+                                                    .fillMaxSize(),
+                                                strokeWidth = 16.dp
+                                            )
                                         }
-                                    )
+                                        return@AnimatedContent
+                                    }
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .verticalScroll(rememberScrollState())
+                                            .padding(16.dp)
+                                    ) {
+                                        viewModel.nearestStops.firstOrNull()?.let {
+                                            Text(
+                                                text = it.name,
+                                                modifier = Modifier.padding(bottom = 16.dp)
+                                            )
+                                            Text(
+                                                text = buildString {
+                                                    append("Nächste Abfahrten:\n")
+                                                    it.departures.forEachIndexed { i, departure ->
+                                                        if (i > 0) append("\n")
+                                                        append(departure.line)
+                                                        append(": ")
+                                                        append(departure.destination)
+                                                        append(" (")
+                                                        append(departure.time)
+                                                        append(") ")
+                                                    }
+                                                }
+                                            )
+                                        }
+                                    }
                                 }
                             }
 
@@ -203,11 +232,14 @@ fun ColumnScope.PlayPauseButton(
     isPlaying: Boolean,
     onClick: () -> Unit
 ) {
-    IconButton(
-        onClick = onClick,
+    Box(
         modifier = Modifier
             .weight(1f)
             .fillMaxWidth()
+            .padding(8.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
     ) {
         AnimatedContent(
             targetState = isPlaying,
@@ -216,13 +248,17 @@ fun ColumnScope.PlayPauseButton(
                 Icon(
                     imageVector = Icons.Outlined.Pause,
                     contentDescription = "Pause",
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .padding(24.dp)
+                        .fillMaxSize()
                 )
             } else {
                 Icon(
                     imageVector = Icons.Outlined.PlayArrow,
                     contentDescription = "Play",
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier
+                        .padding(24.dp)
+                        .fillMaxSize()
                 )
             }
         }
