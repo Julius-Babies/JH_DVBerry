@@ -2,6 +2,7 @@ package org.jugendhackt.wegweiser.tts
 
 import android.speech.tts.TextToSpeech
 import android.speech.tts.TextToSpeech.OnInitListener
+import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -54,7 +55,7 @@ class TTS(private val context: android.content.Context) {
 
         // Sprich den Text im Hintergrund (nicht auf dem Haupt-Thread)
         withContext(Dispatchers.IO) {
-            textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
+            textToSpeech?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "key")
 
             // Blockiere den Hintergrund-Thread bis das Sprechen abgeschlossen ist
             try {
@@ -62,15 +63,9 @@ class TTS(private val context: android.content.Context) {
             } catch (e: InterruptedException) {
                 e.printStackTrace()
             }
+            Log.d("TTS", "Sprechen abgeschlossen")
+            isSpeaking = false
         }
-    }
-
-    // Der TTS-Listener wird verwendet, um den Fortschritt zu verfolgen
-    private val onUtteranceCompletedListener = TextToSpeech.OnUtteranceCompletedListener {
-        // Wenn das Sprechen abgeschlossen ist, wird der Countdown heruntergezählt
-        latch?.countDown()
-        // Setze isSpeaking auf false, wenn der Vorgang abgeschlossen ist
-        isSpeaking = false
     }
 
     // Gibt den TTS-Dienst frei
@@ -81,6 +76,16 @@ class TTS(private val context: android.content.Context) {
 
     // Setzt den Listener für das Abschließen des Sprechens
     private fun setUtteranceListener() {
-        textToSpeech?.setOnUtteranceCompletedListener(onUtteranceCompletedListener)
+        textToSpeech?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String?) {}
+
+            override fun onDone(utteranceId: String?) {
+                isSpeaking = false
+                latch?.countDown()
+                Log.d("TTS", "UtteranceProgressListener: onDone")
+            }
+
+            override fun onError(utteranceId: String?) {}
+        })
     }
 }
