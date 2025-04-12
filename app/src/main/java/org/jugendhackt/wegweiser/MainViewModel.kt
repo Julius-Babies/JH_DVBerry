@@ -58,7 +58,7 @@ class MainViewModel : ViewModel() {
                         nearestStops.addAll(nearestStation)
                         nearestStops[0] = nearestStops[0].let { stop ->
                             stop.copy(
-                                departures = Dvb.departureMonitor(stop.id, 5).departures
+                                departures = Dvb.departureMonitor(stop.id, 5).departures.distinctBy { it.line + it.destination + it.platformName + it.platformType }
                             )
                         }
                     } else {

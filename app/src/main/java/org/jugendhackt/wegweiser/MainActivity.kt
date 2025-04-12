@@ -2,6 +2,7 @@ package org.jugendhackt.wegweiser
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Looper
 import android.util.Log
@@ -10,14 +11,29 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.annotation.RequiresApi
+import androidx.annotation.RequiresPermission
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
@@ -71,27 +87,27 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
-                        viewModel.nearestStops.forEachIndexed { i, it ->
+                        viewModel.nearestStops.firstOrNull()?.let {
                             Text(
                                 text = it.name,
                                 modifier = Modifier.padding(bottom = 16.dp)
                             )
-                            if (i == 0) {
-                                Text(
-                                    text = buildString {
-                                        append("Nächste Abfahrten:\n")
-                                        it.departures.forEachIndexed { i, departure ->
-                                            if (i > 0) append("\n")
-                                            append(departure.line)
-                                            append(": ")
-                                            append(departure.destination)
-                                            append(" (")
-                                            append(departure.time)
-                                            append(") ")
-                                        }
+//                            if (i == 0) {
+                            Text(
+                                text = buildString {
+                                    append("Nächste Abfahrten:\n")
+                                    it.departures.forEachIndexed { i, departure ->
+                                        if (i > 0) append("\n")
+                                        append(departure.line)
+                                        append(": ")
+                                        append(departure.destination)
+                                        append(" (")
+                                        append(departure.time)
+                                        append(") ")
                                     }
-                                )
-                            }
+                                }
+                            )
+//                            }
                         }
                         Text(
                             text = "Play/Pause",
@@ -99,7 +115,7 @@ class MainActivity : ComponentActivity() {
                         )
 
                         // Hier wird der Play/Pause-Button aufgerufen:
-                        PlayPauseButton()
+                        PlayPauseButton(tts, viewModel.nearestStops.firstOrNull())
 
                         Spacer(modifier = Modifier.height(24.dp))
                     }
@@ -142,6 +158,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private val locationCallback = object : LocationCallback() {
+        @RequiresApi(Build.VERSION_CODES.O)
         override fun onLocationResult(locationResult: LocationResult) {
             Log.d("Location", "onLocationResult")
             Log.d("Location", "Location: ${locationResult.lastLocation}")
@@ -208,7 +225,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun PlayPauseButton() {
+fun PlayPauseButton(tts: TTS, station: Station?) {
     var isPlaying by remember { mutableStateOf(false) }
     // Erhalte die aktuelle Bildschirmbreite
     val configuration = LocalConfiguration.current
@@ -217,6 +234,32 @@ fun PlayPauseButton() {
     val buttonSize = screenWidth * 0.4f
     // Wähle die Icon-Größe als 75% des Button-Durchmessers
     val iconSize = buttonSize * 0.75f
+
+    LaunchedEffect(isPlaying) {
+        if (isPlaying && station != null) {
+            val speak = buildString {
+                append("Haltestelle: ")
+                append(station.name)
+                append(". Nächste abfahrten: ")
+                station.departures.forEach {
+                    append("Linie ")
+                    append(it.line)
+                    append(" in Richtung ")
+                    append(it.destination)
+                    append(" kommt ")
+                    append(it.time)
+                    append(" an auf ")
+                    append(it.platformType)
+                    append(" ")
+                    append(it.platformName)
+                    append(". ")
+                }
+
+            }
+            tts.speak(speak)
+        }
+    }
+
 
     IconButton(
         onClick = { isPlaying = !isPlaying },
