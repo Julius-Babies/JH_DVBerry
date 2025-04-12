@@ -4,6 +4,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
 import java.time.LocalTime
 
 class MainViewModel : ViewModel() {
@@ -13,10 +15,12 @@ class MainViewModel : ViewModel() {
         private set
 
     fun onEvent(event: MainEvent) {
-        when (event) {
-            is MainEvent.LocationUpdate -> {
-                latitude = event.latitude
-                longitude = event.longitude
+        viewModelScope.launch {
+            when (event) {
+                is MainEvent.LocationUpdate -> {
+                    latitude = event.latitude
+                    longitude = event.longitude
+                }
             }
         }
     }
