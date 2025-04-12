@@ -14,7 +14,7 @@ object Dvb {
 
     suspend fun departureMonitor(stopID: Int, limit: Int): String {
         val client = HttpClient(CIO)
-        val response: HttpResponse = client.post("https://webapi.vvo-online.de/dm") {
+        val response: HttpResponse = client.post("$baseUrl/dm") {
             setBody("{stopid: $stopID; limit: $limit}")
             contentType(ContentType.Application.Json)
         }
