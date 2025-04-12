@@ -36,12 +36,13 @@ sealed class MainEvent {
 data class Station(
     val name: String,
     val distance: Int,
-    val departures: List<Departure>,
-    val lines: List<String>
+    val departures: List<Departure>
 )
 
 data class Departure(
     val line: String,
     val destination: String,
     val time: LocalTime,
+    val platformName: String,
+    val platformType: String
 )
