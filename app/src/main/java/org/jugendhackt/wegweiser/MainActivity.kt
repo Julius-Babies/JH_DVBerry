@@ -4,21 +4,21 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Looper
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresPermission
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
@@ -27,7 +27,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
@@ -71,31 +70,37 @@ class MainActivity : ComponentActivity() {
                 WegweiserTheme {
                     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                         Column(
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(innerPadding)
                         ) {
-                            viewModel.nearestStops.firstOrNull()?.let {
-                                Text(
-                                    text = it.name,
-                                    modifier = Modifier.padding(bottom = 16.dp)
-                                )
-                                Text(
-                                    text = buildString {
-                                        append("Nächste Abfahrten:\n")
-                                        it.departures.forEachIndexed { i, departure ->
-                                            if (i > 0) append("\n")
-                                            append(departure.line)
-                                            append(": ")
-                                            append(departure.destination)
-                                            append(" (")
-                                            append(departure.time)
-                                            append(") ")
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f)
+                                    .verticalScroll(rememberScrollState())
+                                    .padding(16.dp)
+                            ) {
+                                viewModel.nearestStops.firstOrNull()?.let {
+                                    Text(
+                                        text = it.name,
+                                        modifier = Modifier.padding(bottom = 16.dp)
+                                    )
+                                    Text(
+                                        text = buildString {
+                                            append("Nächste Abfahrten:\n")
+                                            it.departures.forEachIndexed { i, departure ->
+                                                if (i > 0) append("\n")
+                                                append(departure.line)
+                                                append(": ")
+                                                append(departure.destination)
+                                                append(" (")
+                                                append(departure.time)
+                                                append(") ")
+                                            }
                                         }
-                                    }
-                                )
+                                    )
+                                }
                             }
 
                             PlayPauseButton(viewModel.isPlaying) { viewModel.onEvent(MainEvent.TogglePlayPause) }
@@ -194,14 +199,14 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun PlayPauseButton(
+fun ColumnScope.PlayPauseButton(
     isPlaying: Boolean,
     onClick: () -> Unit
 ) {
     IconButton(
         onClick = onClick,
         modifier = Modifier
-            .fillMaxHeight(.5f)
+            .weight(1f)
             .fillMaxWidth()
     ) {
         AnimatedContent(
