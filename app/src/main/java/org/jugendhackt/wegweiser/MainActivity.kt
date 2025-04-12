@@ -45,11 +45,9 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
                         Button(onClick = {
                             scope.launch {
-                                while (true) {
-                                    viewModel.testText.value = "Sie Huhrensohn!"
-                                    if (isTtsReady) {
-                                        tts.speak(viewModel.testText.value, TextToSpeech.QUEUE_FLUSH, null, null)
-                                    }
+                                viewModel.testText.value = "Sie Huhrensohn!"
+                                if (isTtsReady) {
+                                    tts.speak(viewModel.testText.value, TextToSpeech.QUEUE_FLUSH, null, null)
                                 }
                             }
                         }) {
@@ -63,7 +61,7 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
-            val result = tts.setLanguage(Locale.TRADITIONAL_CHINESE)
+            val result = tts.setLanguage(Locale.GERMAN)
             isTtsReady = result != TextToSpeech.LANG_MISSING_DATA && result != TextToSpeech.LANG_NOT_SUPPORTED
         } else {
             isTtsReady = false
