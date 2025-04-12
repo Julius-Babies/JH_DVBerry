@@ -10,6 +10,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresPermission
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,13 +28,14 @@ import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import com.google.android.gms.location.FusedLocationProviderClient
@@ -111,11 +113,19 @@ class MainActivity : ComponentActivity() {
                                         viewModel.nearestStops.firstOrNull()?.let {
                                             Text(
                                                 text = it.name,
-                                                modifier = Modifier.padding(bottom = 16.dp)
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .basicMarquee(),
+                                                textAlign = TextAlign.Center,
+                                                style = MaterialTheme.typography.displayLarge
+                                            )
+                                            Spacer(Modifier.height(16.dp))
+                                            Text(
+                                                text = "Nächste Abfahrten",
+                                                style = MaterialTheme.typography.titleLarge
                                             )
                                             Text(
                                                 text = buildString {
-                                                    append("Nächste Abfahrten:\n")
                                                     it.departures.forEachIndexed { i, departure ->
                                                         if (i > 0) append("\n")
                                                         append(departure.line)
