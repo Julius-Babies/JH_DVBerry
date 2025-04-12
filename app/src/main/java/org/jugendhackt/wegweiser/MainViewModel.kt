@@ -48,7 +48,7 @@ class MainViewModel(
                                 .orEmpty()
                         )
                     } else {
-                        Log.d("MainViewModel", "Keine Änderungen an nächstgelegenen Haltestellen")
+                        Log.d("MainViewModel", "No changes to nearest stops")
                     }
                 }
                 is MainEvent.TogglePlayPause -> {
