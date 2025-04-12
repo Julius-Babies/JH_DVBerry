@@ -37,6 +37,11 @@ class MainActivity : ComponentActivity() {
                         }) {
                             Text("Click me")
                         }
+                        Button(onClick = {
+                            counter.value = 0
+                        }) {
+                            Text("Reset")
+                        }
                     }
                 }
             }
