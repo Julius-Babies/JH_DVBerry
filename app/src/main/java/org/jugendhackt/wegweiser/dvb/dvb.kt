@@ -10,6 +10,8 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 
 object Dvb {
+    private var baseUrl = "https://webapi.vvo-online.de"
+
     suspend fun departureMonitor(stopID: Int, limit: Int): String {
         val client = HttpClient(CIO)
         val response: HttpResponse = client.post("https://webapi.vvo-online.de/dm") {
