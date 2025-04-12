@@ -1,7 +1,7 @@
 package org.jugendhackt.wegweiser.dvb
 
+import android.content.Context
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
@@ -10,11 +10,15 @@ import io.ktor.client.request.parameter
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.URLProtocol
+import io.ktor.http.isSuccess
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.jugendhackt.wegweiser.Departure
+import org.jugendhackt.wegweiser.R
 import org.jugendhackt.wegweiser.Station
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
@@ -41,11 +45,12 @@ data class Haltestelle(
     }
 }
 
-object Dvb {
-    private var baseUrl = "https://webapi.vvo-online.de"
+class DVBSource(
+    private val context: Context
+) {
+    private val json = Json { ignoreUnknownKeys = true }
 
-    @RequiresApi(Build.VERSION_CODES.O)
-    suspend fun departureMonitor(stopID: String, limit: Int): Station {
+    suspend fun departureMonitor(stopID: String, limit: Int): Station? {
         val client = HttpClient(CIO)
         val response: HttpResponse = client.get {
             url {
@@ -56,11 +61,11 @@ object Dvb {
                 parameter("limit", limit)
             }
         }
+        if (!response.status.isSuccess()) return null
         val body = response.bodyAsText()
-        Log.d("KTor-Response", body)
-        val haltestelle = Json { ignoreUnknownKeys = true }.decodeFromString<Haltestelle>(body)
-        val departures = ArrayList<Departure>()
-        haltestelle.departures.forEach {
+        val stationResponse = json.decodeFromString<Haltestelle>(body)
+        val departures = mutableListOf<Departure>()
+        stationResponse.departures.forEach {
             departures.add(
                 Departure(
                     it.lineName,
@@ -71,11 +76,24 @@ object Dvb {
                 )
             )
         }
-        val station = Station(stopID, haltestelle.name, 0.0, 0.0, departures)
+        val station = Station(stopID, stationResponse.name, 0.0, 0.0, departures)
         return station
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    fun getStations(): List<Station> {
+        val inputStream = context.resources.openRawResource(R.raw.stops)
+        val reader = BufferedReader(InputStreamReader(inputStream))
+        val json = Json { ignoreUnknownKeys = true }
+        return reader.useLines { lines ->
+            lines.joinToString("").let {
+                val json = json.decodeFromString<FeatureCollection>(it)
+                json.features.map {
+                    Station(it.properties.number, it.properties.name, it.geometry.coordinates[0], it.geometry.coordinates[1], emptyList())
+                }
+            }
+        }
+    }
+
     private fun extractLocalTimeFromDateString(dateString: String): LocalTime {
         val millis = dateString.substringAfter("(").substringBefore("+").substringBefore("-").toLong()
         return ZonedDateTime.from(Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault())).toLocalTime()
