@@ -28,6 +28,7 @@ class MainViewModel : ViewModel() {
         val inputStream = context.resources.openRawResource(R.raw.stops)
         val reader = BufferedReader(InputStreamReader(inputStream))
         val json = Json { ignoreUnknownKeys = true }
+        stops.clear()
         reader.useLines { lines ->
             lines.joinToString("").let {
                 val json = json.decodeFromString<FeatureCollection>(it)
