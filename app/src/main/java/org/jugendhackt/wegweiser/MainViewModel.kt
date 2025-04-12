@@ -56,7 +56,7 @@ class MainViewModel(
                     if (isPlaying) {
                         nearestStops?.let {
                             val speak = it.buildTTSSpeakableString()
-                            tts.speak(speak)
+                            tts.speak(speak) { isPlaying = false }
                         }
                     } else {
                         tts.stop()
