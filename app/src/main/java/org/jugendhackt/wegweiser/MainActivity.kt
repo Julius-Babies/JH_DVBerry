@@ -17,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import org.jugendhackt.wegweiser.dvb.Dvb
 import org.jugendhackt.wegweiser.ui.theme.WegweiserTheme
 
@@ -30,7 +31,7 @@ class MainActivity : ComponentActivity() {
                     val viewModel by viewModels<MainViewModel>()
                     var counter = remember { mutableStateOf(0) }
                     Column {
-                        Text(viewModel.testText.value)
+                        Text(text = viewModel.testText.value, modifier = Modifier.padding(top = 64.dp))
                         nmbrView(
                             name = "Android (Counter: ${counter.value})",
                             modifier = Modifier.padding(innerPadding)
