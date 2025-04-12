@@ -57,7 +57,7 @@ object Dvb {
         }
         val body = response.bodyAsText()
         Log.d("KTor-Response", body)
-        val haltestelle = Json {ignoreUnknownKeys = true }.decodeFromString<Haltestelle>(body)
+        val haltestelle = Json { ignoreUnknownKeys = true }.decodeFromString<Haltestelle>(body)
         val departures = ArrayList<Departure>()
         haltestelle.departures.forEach {
             departures.add(
@@ -70,7 +70,7 @@ object Dvb {
                 )
             )
         }
-        val station = Station(haltestelle.name, -1, departures)
+        val station = Station(haltestelle.name, 0.0, 0.0, emptyList())
         return station
     }
 
@@ -80,3 +80,33 @@ object Dvb {
         return ZonedDateTime.from(Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault())).toLocalTime()
     }
 }
+
+@Serializable
+data class FeatureCollection(
+    val type: String,
+    val features: List<Feature>
+)
+
+@Serializable
+data class Feature(
+    val type: String,
+    val properties: Properties,
+    val geometry: Geometry
+)
+
+@Serializable
+data class Properties(
+    val number: String,
+    val nameWithCity: String,
+    val name: String,
+    val city: String,
+    val tariffZone1: String,
+    val tariffZone2: String,
+    val tariffZone3: String
+)
+
+@Serializable
+data class Geometry(
+    val type: String,
+    val coordinates: List<Double>
+)

@@ -1,12 +1,19 @@
 package org.jugendhackt.wegweiser
 
+import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import org.jugendhackt.wegweiser.dvb.FeatureCollection
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import java.time.LocalTime
+import kotlin.math.sqrt
 
 class MainViewModel : ViewModel() {
     var latitude: Double by mutableDoubleStateOf(0.0)
@@ -14,12 +21,33 @@ class MainViewModel : ViewModel() {
     var longitude: Double by mutableDoubleStateOf(0.0)
         private set
 
+    private val stops = mutableListOf<Station>()
+    val nearestStops = mutableStateListOf<Station>()
+
+    fun init(context: Context) {
+        val inputStream = context.resources.openRawResource(R.raw.stops)
+        val reader = BufferedReader(InputStreamReader(inputStream))
+        val json = Json { ignoreUnknownKeys = true }
+        reader.useLines { lines ->
+            lines.joinToString("").let {
+                val json = json.decodeFromString<FeatureCollection>(it)
+                json.features.forEach {
+                    stops.add(Station(it.properties.name, it.geometry.coordinates[0], it.geometry.coordinates[1], emptyList()))
+                }
+            }
+        }
+    }
+
     fun onEvent(event: MainEvent) {
         viewModelScope.launch {
             when (event) {
                 is MainEvent.LocationUpdate -> {
                     latitude = event.latitude
                     longitude = event.longitude
+                    nearestStops.clear()
+                    nearestStops.addAll(stops.sortedBy {
+                        sqrt((longitude - it.longitude) * (longitude - it.longitude) + (latitude - it.latitude) * (latitude - it.latitude))
+                    }.take(10))
                 }
             }
         }
@@ -35,7 +63,8 @@ sealed class MainEvent {
  */
 data class Station(
     val name: String,
-    val distance: Int,
+    val longitude: Double,
+    val latitude: Double,
     val departures: List<Departure>
 )
 

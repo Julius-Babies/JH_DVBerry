@@ -50,14 +50,13 @@ class MainActivity : ComponentActivity() {
             ) {
                 startLocationUpdates()
             }
-
         }
         setContent {
+            LaunchedEffect(Unit) {
+                viewModel.init(applicationContext)
+            }
             WegweiserTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    // Beispielhaftes ViewModel; falls nicht vorhanden, ggf. anpassen oder entfernen
-                    val viewModel by viewModels<MainViewModel>()
-
                     Column(
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -65,6 +64,12 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
+                        viewModel.nearestStops.forEach {
+                            Text(
+                                text = it.name,
+                                modifier = Modifier.padding(bottom = 16.dp)
+                            )
+                        }
                         Text(
                             text = "Play/Pause",
                             modifier = Modifier.padding(bottom = 16.dp)
