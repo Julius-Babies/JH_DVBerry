@@ -1,9 +1,29 @@
 package org.jugendhackt.wegweiser
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableDoubleStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import java.time.LocalTime
 
 class MainViewModel : ViewModel() {
+    var latitude: Double by mutableDoubleStateOf(0.0)
+        private set
+    var longitude: Double by mutableDoubleStateOf(0.0)
+        private set
+
+    fun onEvent(event: MainEvent) {
+        when (event) {
+            is MainEvent.LocationUpdate -> {
+                latitude = event.latitude
+                longitude = event.longitude
+            }
+        }
+    }
+}
+
+sealed class MainEvent {
+    data class LocationUpdate(val latitude: Double, val longitude: Double) : MainEvent()
 }
 
 /**
