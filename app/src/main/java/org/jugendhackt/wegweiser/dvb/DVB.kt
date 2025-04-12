@@ -23,14 +23,15 @@ import java.time.ZonedDateTime
 @Serializable
 data class Haltestelle(
     @SerialName("Name") val name: String,
-    @SerialName("Departures") val departures: List<Departure>
+    @SerialName("Departures") val departures: List<Departure> = emptyList()
 ) {
     @Serializable
     data class Departure(
         @SerialName("LineName") val lineName: String,
         @SerialName("Direction") val direction: String,
         @SerialName("Platform") val platform: Platform,
-        @SerialName("RealTime") val time: String
+        @SerialName("RealTime") val realTime: String? = null,
+        @SerialName("ScheduledTime") val scheduleTime: String
     ) {
         @Serializable
         data class Platform(
@@ -64,13 +65,13 @@ object Dvb {
                 Departure(
                     it.lineName,
                     it.direction,
-                    extractLocalTimeFromDateString(it.time),
+                    extractLocalTimeFromDateString(it.realTime ?: it.scheduleTime),
                     it.platform.name,
                     it.platform.type
                 )
             )
         }
-        val station = Station(haltestelle.name, 0.0, 0.0, emptyList())
+        val station = Station(stopID, haltestelle.name, 0.0, 0.0, departures)
         return station
     }
 

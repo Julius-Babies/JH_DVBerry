@@ -64,11 +64,27 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
-                        viewModel.nearestStops.forEach {
+                        viewModel.nearestStops.forEachIndexed { i, it ->
                             Text(
                                 text = it.name,
                                 modifier = Modifier.padding(bottom = 16.dp)
                             )
+                            if (i == 0) {
+                                Text(
+                                    text = buildString {
+                                        append("Nächste Abfahrten:\n")
+                                        it.departures.forEachIndexed { i, departure ->
+                                            if (i > 0) append("\n")
+                                            append(departure.line)
+                                            append(": ")
+                                            append(departure.destination)
+                                            append(" (")
+                                            append(departure.time)
+                                            append(") ")
+                                        }
+                                    }
+                                )
+                            }
                         }
                         Text(
                             text = "Play/Pause",

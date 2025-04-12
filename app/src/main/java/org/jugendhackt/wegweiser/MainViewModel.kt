@@ -1,6 +1,9 @@
 package org.jugendhackt.wegweiser
 
 import android.content.Context
+import android.os.Build
+import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -9,6 +12,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import org.jugendhackt.wegweiser.dvb.Dvb
 import org.jugendhackt.wegweiser.dvb.FeatureCollection
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -33,22 +37,33 @@ class MainViewModel : ViewModel() {
             lines.joinToString("").let {
                 val json = json.decodeFromString<FeatureCollection>(it)
                 json.features.forEach {
-                    stops.add(Station(it.properties.name, it.geometry.coordinates[0], it.geometry.coordinates[1], emptyList()))
+                    stops.add(Station(it.properties.number, it.properties.name, it.geometry.coordinates[0], it.geometry.coordinates[1], emptyList()))
                 }
             }
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     fun onEvent(event: MainEvent) {
         viewModelScope.launch {
             when (event) {
                 is MainEvent.LocationUpdate -> {
                     latitude = event.latitude
                     longitude = event.longitude
-                    nearestStops.clear()
-                    nearestStops.addAll(stops.sortedBy {
+                    val nearestStation = stops.sortedBy {
                         sqrt((longitude - it.longitude) * (longitude - it.longitude) + (latitude - it.latitude) * (latitude - it.latitude))
-                    }.take(10))
+                    }.take(10)
+                    if (nearestStation != nearestStops) {
+                        nearestStops.clear()
+                        nearestStops.addAll(nearestStation)
+                        nearestStops[0] = nearestStops[0].let { stop ->
+                            stop.copy(
+                                departures = Dvb.departureMonitor(stop.id, 5).departures
+                            )
+                        }
+                    } else {
+                        Log.d("MainViewModel", "Location update ignored")
+                    }
                 }
             }
         }
@@ -63,6 +78,7 @@ sealed class MainEvent {
  * @param distance in meters
  */
 data class Station(
+    val id: String,
     val name: String,
     val longitude: Double,
     val latitude: Double,
