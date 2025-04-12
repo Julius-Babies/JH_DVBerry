@@ -6,10 +6,11 @@ import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.jugendhackt.wegweiser.MainViewModel
 import java.util.Locale
 import java.util.concurrent.CountDownLatch
 
-class TTS(private val context: android.content.Context) {
+class TTS(private val context: MainViewModel) {
 
     private var textToSpeech: TextToSpeech? = null
     private var latch: CountDownLatch? = null
