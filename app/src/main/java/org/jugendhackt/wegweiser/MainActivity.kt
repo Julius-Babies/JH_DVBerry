@@ -134,6 +134,9 @@ class MainActivity : ComponentActivity() {
                                                         append(" (")
                                                         append(departure.time)
                                                         append(") ")
+                                                        if (departure.isCancelled) append(" Entfall")
+                                                        else if (departure.delayInMinutes > 0) append(" +${departure.delayInMinutes}min")
+                                                        else if (departure.delayInMinutes < 0) append(" -${departure.delayInMinutes}min")
                                                     }
                                                 }
                                             )

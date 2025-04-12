@@ -11,6 +11,7 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.URLProtocol
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.delay
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -35,7 +36,8 @@ data class Haltestelle(
         @SerialName("Direction") val direction: String,
         @SerialName("Platform") val platform: Platform,
         @SerialName("RealTime") val realTime: String? = null,
-        @SerialName("ScheduledTime") val scheduleTime: String
+        @SerialName("ScheduledTime") val scheduleTime: String,
+        @SerialName("State") val state: String,
     ) {
         @Serializable
         data class Platform(
@@ -68,11 +70,17 @@ class DVBSource(
         stationResponse.departures.forEach {
             departures.add(
                 Departure(
-                    it.lineName,
-                    it.direction,
-                    extractLocalTimeFromDateString(it.realTime ?: it.scheduleTime),
-                    it.platform.name,
-                    it.platform.type
+                    line = it.lineName,
+                    destination = it.direction,
+                    time = extractLocalTimeFromDateString(it.realTime ?: it.scheduleTime),
+                    platformName = it.platform.name,
+                    platformType = it.platform.type,
+                    delayInMinutes = it.realTime?.let { realTime ->
+                        val plannedTime = extractLocalTimeFromDateString(it.scheduleTime)
+                        val actualTime = extractLocalTimeFromDateString(realTime)
+                        (plannedTime.hour - actualTime.hour) * 60 + (plannedTime.minute - actualTime.minute)
+                    } ?: 0,
+                    isCancelled = it.state == "Cancelled"
                 )
             )
         }

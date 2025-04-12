@@ -19,6 +19,7 @@ class MainViewModel(
 ) : ViewModel() {
     var latitude: Double by mutableDoubleStateOf(0.0)
         private set
+
     var longitude: Double by mutableDoubleStateOf(0.0)
         private set
 
@@ -46,7 +47,7 @@ class MainViewModel(
                                 .orEmpty()
                         )
                     } else {
-                        Log.d("MainViewModel", "Location update ignored")
+                        Log.d("MainViewModel", "Keine Änderungen an nächstgelegenen Haltestellen")
                     }
                 }
                 is MainEvent.TogglePlayPause -> {
@@ -104,5 +105,7 @@ data class Departure(
     val destination: String,
     val time: LocalTime,
     val platformName: String,
-    val platformType: String
+    val platformType: String,
+    val delayInMinutes: Int = 0,
+    val isCancelled: Boolean = false
 )
