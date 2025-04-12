@@ -61,9 +61,6 @@ fun Greeting(name: String = "Fuck Nazis!", modifier: Modifier = Modifier) {
 @Composable
 fun GreetingPreview() {
     WegweiserTheme {
-        Scaffold { _ ->
             Greeting("Android")
-        }
-
     }
 }
