@@ -24,6 +24,11 @@ class MainActivity : ComponentActivity() {
                         name = "Android",
                         modifier = Modifier.padding(innerPadding)
                     )
+
+                    Text(
+                        text = "Hello, Android!",
+                        modifier = Modifier.padding(innerPadding)
+                    )
                 }
             }
         }
