@@ -1,20 +1,33 @@
 package org.jugendhackt.wegweiser
 
-import android.os.Build
-import androidx.annotation.RequiresApi
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableDoubleStateOf
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
-import org.jugendhackt.wegweiser.dvb.Dvb
 import java.time.LocalTime
 
-@RequiresApi(Build.VERSION_CODES.O)
 class MainViewModel : ViewModel() {
-    val testText = mutableStateOf("")
-    init {
-        viewModelScope.launch { testText.value = Dvb.departureMonitor("de:14612:65", 10).toString() }
+    var latitude: Double by mutableDoubleStateOf(0.0)
+        private set
+    var longitude: Double by mutableDoubleStateOf(0.0)
+        private set
+
+    fun onEvent(event: MainEvent) {
+        viewModelScope.launch {
+            when (event) {
+                is MainEvent.LocationUpdate -> {
+                    latitude = event.latitude
+                    longitude = event.longitude
+                }
+            }
+        }
     }
+}
+
+sealed class MainEvent {
+    data class LocationUpdate(val latitude: Double, val longitude: Double) : MainEvent()
 }
 
 /**
@@ -22,17 +35,13 @@ class MainViewModel : ViewModel() {
  */
 data class Station(
     val name: String,
-    val distance: Int, //TODO
-    val departures: List<Departure>
+    val distance: Int,
+    val departures: List<Departure>,
+    val lines: List<String>
 )
 
-/**
- * @param time LocalTime
- */
 data class Departure(
     val line: String,
-    val direction: String,
+    val destination: String,
     val time: LocalTime,
-    val platformName: String,
-    val platformType: String
 )
