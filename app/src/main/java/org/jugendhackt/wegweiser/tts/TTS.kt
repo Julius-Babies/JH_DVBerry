@@ -7,7 +7,7 @@ import android.speech.tts.UtteranceProgressListener
 import android.util.Log
 import java.util.Locale
 
-class TTS(private val context: Context) {
+class TTS(context: Context) {
 
     private val textToSpeech: TextToSpeech
     private var isSpeaking = false

@@ -88,7 +88,7 @@ class MainActivity : ComponentActivity() {
                                     .weight(1f)
                             ) {
                                 AnimatedContent(
-                                    targetState = viewModel.nearestStops.isEmpty()
+                                    targetState = viewModel.nearestStops == null
                                 ) { isLoading ->
                                     if (isLoading) {
                                         Box(
@@ -110,12 +110,12 @@ class MainActivity : ComponentActivity() {
                                             .verticalScroll(rememberScrollState())
                                             .padding(16.dp)
                                     ) {
-                                        viewModel.nearestStops.firstOrNull()?.let {
+                                        viewModel.nearestStops?.let {
                                             Text(
                                                 text = it.name,
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .basicMarquee(),
+                                                    .basicMarquee(iterations = Int.MAX_VALUE),
                                                 textAlign = TextAlign.Center,
                                                 style = MaterialTheme.typography.displayLarge
                                             )

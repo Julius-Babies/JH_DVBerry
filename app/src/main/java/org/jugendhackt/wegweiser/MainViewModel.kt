@@ -1,11 +1,8 @@
 package org.jugendhackt.wegweiser
 
-import android.os.Build
 import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
@@ -29,7 +26,8 @@ class MainViewModel(
         private set
 
     private val stops: List<Station> = dvbSource.getStations()
-    val nearestStops = mutableStateListOf<Station>()
+    var nearestStops by mutableStateOf<Station?>(null)
+        private set
 
     fun onEvent(event: MainEvent) {
         viewModelScope.launch {
@@ -37,20 +35,16 @@ class MainViewModel(
                 is MainEvent.LocationUpdate -> {
                     latitude = event.latitude
                     longitude = event.longitude
-                    val nearestStation = stops.sortedBy {
+                    val nearestStation = stops.minByOrNull {
                         sqrt((longitude - it.longitude) * (longitude - it.longitude) + (latitude - it.latitude) * (latitude - it.latitude))
-                    }.take(10)
-                    if (nearestStation != nearestStops) {
-                        nearestStops.clear()
-                        nearestStops.addAll(nearestStation)
-                        nearestStops[0] = nearestStops[0].let { stop ->
-                            stop.copy(
-                                departures = dvbSource.departureMonitor(stop.id, 5)
-                                    ?.departures
-                                    ?.distinctBy { it.line + it.destination + it.platformName + it.platformType }
-                                    .orEmpty()
-                            )
-                        }
+                    }
+                    if (nearestStation?.id != nearestStops?.id) {
+                        nearestStops = nearestStation?.copy(
+                            departures = dvbSource.departureMonitor(nearestStation.id, 5)
+                                ?.departures
+                                ?.distinctBy { it.line + it.destination + it.platformName + it.platformType }
+                                .orEmpty()
+                        )
                     } else {
                         Log.d("MainViewModel", "Location update ignored")
                     }
@@ -58,7 +52,7 @@ class MainViewModel(
                 is MainEvent.TogglePlayPause -> {
                     isPlaying = !isPlaying
                     if (isPlaying) {
-                        nearestStops.firstOrNull()?.let {
+                        nearestStops?.let {
                             val speak = it.buildTTSSpeakableString()
                             tts.speak(speak)
                         }
