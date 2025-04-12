@@ -13,6 +13,7 @@ class TTS(private val context: android.content.Context) {
 
     private var textToSpeech: TextToSpeech? = null
     private var latch: CountDownLatch? = null
+    public var callBack: (() -> Unit)? = null
 
     // Flag, das angibt, ob gerade gesprochen wird
     private var isSpeaking = false
@@ -36,7 +37,8 @@ class TTS(private val context: android.content.Context) {
     }
 
     // Spricht den übergebenen Text und blockiert, bis es fertig ist
-    suspend fun speak(text: String) {
+    suspend fun speak(text: String, callBack: (() -> Unit)? = null) {
+        this.callBack = callBack
         if (isSpeaking) {
             Log.w("TTS", "Es läuft bereits eine Sprachausgabe. Bitte warte, bis sie abgeschlossen ist.")
             return
@@ -80,6 +82,7 @@ class TTS(private val context: android.content.Context) {
             override fun onStart(utteranceId: String?) {}
 
             override fun onDone(utteranceId: String?) {
+                callBack?.invoke()
                 isSpeaking = false
                 latch?.countDown()
                 Log.d("TTS", "UtteranceProgressListener: onDone")

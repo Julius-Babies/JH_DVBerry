@@ -256,7 +256,9 @@ fun PlayPauseButton(tts: TTS, station: Station?) {
                 }
 
             }
-            tts.speak(speak)
+            tts.speak(speak, {
+                isPlaying = false
+            })
         }
     }
 
