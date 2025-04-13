@@ -61,6 +61,7 @@ class MainViewModel(
                     if (isPlaying) {
                         nearestStops?.let {
                             val speak = it.buildTTSSpeakableString()
+//                            Log.d("TTS", "TTS - Speaking invoke: \n $speak")
                             tts.speak(speak) { isPlaying = false }
                         }
                     } else {
@@ -89,6 +90,7 @@ data class Station(
             append("Haltestelle ")
             append(name)
             append(". Nächste Abfahrten: ")
+//            Log.d("TTS", "Depature Amount: ${departures.size}")
             departures.forEach {
                 append("Linie ")
                 append(it.line)

@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Looper
+import android.util.Log
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,10 +48,12 @@ import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import org.jugendhackt.wegweiser.app.checkPermission
 import org.jugendhackt.wegweiser.di.appModule
+import org.jugendhackt.wegweiser.sensors.shake.ShakeSensor
 import org.jugendhackt.wegweiser.ui.theme.WegweiserTheme
 import org.koin.android.ext.koin.androidContext
 import org.koin.androidx.compose.KoinAndroidContext
 import org.koin.androidx.viewmodel.ext.android.viewModel
+import org.koin.compose.koinInject
 import org.koin.core.context.GlobalContext.startKoin
 
 class MainActivity : AppCompatActivity() {
@@ -69,6 +73,17 @@ class MainActivity : AppCompatActivity() {
 
         setContent {
             KoinAndroidContext {
+                val shakeSensor = koinInject<ShakeSensor>()
+                LaunchedEffect(42) {
+                    var timeThreshold = 0L
+                    shakeSensor.add {
+//                        if (viewModel.isPlaying) return@add
+                        if (System.nanoTime() - timeThreshold < 1500000000L) return@add
+                        timeThreshold = System.nanoTime()
+                        viewModel.onEvent(MainEvent.TogglePlayPause)
+                        Log.d("ACC", "ButtonToggle by Shaking")
+                    }
+                }
                 WegweiserTheme {
                     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                         Column(
@@ -130,8 +145,12 @@ class MainActivity : AppCompatActivity() {
                                                         append(") ")
                                                         append(" auf ${departure.platformType} ${departure.platformName}")
                                                         if (departure.isCancelled) append(" Entfällt")
-                                                        else if (departure.delayInMinutes > 0) append(" +${departure.delayInMinutes}min")
-                                                        else if (departure.delayInMinutes < 0) append(" ${departure.delayInMinutes}min")
+                                                        else if (departure.delayInMinutes > 0) append(
+                                                            " +${departure.delayInMinutes}min"
+                                                        )
+                                                        else if (departure.delayInMinutes < 0) append(
+                                                            " ${departure.delayInMinutes}min"
+                                                        )
                                                     }
                                                 }
                                             )
