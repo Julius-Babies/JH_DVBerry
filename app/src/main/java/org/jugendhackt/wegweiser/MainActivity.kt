@@ -68,7 +68,11 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         enableEdgeToEdge()
-        if (checkPermission(this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION)) startLocationUpdates()
+        if (checkPermission(
+                this@MainActivity,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            )
+        ) startLocationUpdates()
         else requestPermissions()
 
         setContent {
@@ -79,6 +83,7 @@ class MainActivity : AppCompatActivity() {
                     shakeSensor.add {
 //                        if (viewModel.isPlaying) return@add
                         if (System.nanoTime() - timeThreshold < 1500000000L) return@add
+                        if (viewModel.nearestStops == null) return@add
                         timeThreshold = System.nanoTime()
                         viewModel.onEvent(MainEvent.TogglePlayPause)
                         Log.d("ACC", "ButtonToggle by Shaking")
@@ -142,8 +147,7 @@ class MainActivity : AppCompatActivity() {
                                                         append(departure.destination)
                                                         append(" (")
                                                         append(departure.time)
-                                                        append(")")
-                                                        append(" auf ${departure.platformType} ${departure.platformName}")
+                                                        append(") auf ${departure.platformType} ${departure.platformName}")
                                                         if (departure.isCancelled) append(" Entfällt")
                                                         else if (departure.delayInMinutes > 0) append(
                                                             " +${departure.delayInMinutes}min"
@@ -159,7 +163,10 @@ class MainActivity : AppCompatActivity() {
                                 }
                             }
 
-                            PlayPauseButton(viewModel.isPlaying, viewModel.canPlay) { viewModel.onEvent(MainEvent.TogglePlayPause) }
+                            PlayPauseButton(
+                                viewModel.isPlaying,
+                                viewModel.canPlay
+                            ) { viewModel.onEvent(MainEvent.TogglePlayPause) }
 
                             Spacer(modifier = Modifier.height(24.dp))
                         }
@@ -174,7 +181,7 @@ class MainActivity : AppCompatActivity() {
         val locationRequest = LocationRequest.Builder(1000).build()
 
         fusedLocationClient.lastLocation.addOnSuccessListener {
-            viewModel.onEvent(MainEvent.LocationUpdate(it.latitude, it.longitude))
+            it?.let { viewModel.onEvent(MainEvent.LocationUpdate(it.latitude, it.longitude)) }
         }
 
         fusedLocationClient.requestLocationUpdates(
