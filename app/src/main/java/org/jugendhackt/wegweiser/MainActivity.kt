@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Looper
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -47,10 +48,12 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.launch
 import org.jugendhackt.wegweiser.app.checkPermission
 import org.jugendhackt.wegweiser.di.appModule
+import org.jugendhackt.wegweiser.sensors.shake.ShakeSensor
 import org.jugendhackt.wegweiser.ui.theme.WegweiserTheme
 import org.koin.android.ext.koin.androidContext
 import org.koin.androidx.compose.KoinAndroidContext
 import org.koin.androidx.viewmodel.ext.android.viewModel
+import org.koin.compose.koinInject
 import org.koin.core.context.GlobalContext.startKoin
 
 class MainActivity : ComponentActivity() {
@@ -69,12 +72,22 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         MainScope().launch {
-            if (checkPermission(this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION)) startLocationUpdates()
+            if (checkPermission(
+                    this@MainActivity,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                )
+            ) startLocationUpdates()
             else requestPermissions()
         }
 
         setContent {
             KoinAndroidContext {
+                val shakeSensor = koinInject<ShakeSensor>()
+                shakeSensor.add {
+                    if (viewModel.isPlaying) return@add
+                    viewModel.onEvent(MainEvent.TogglePlayPause)
+                    Log.d("ACC", "ButtonToggle by Shaking")
+                }
                 WegweiserTheme {
                     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                         Column(
@@ -136,8 +149,12 @@ class MainActivity : ComponentActivity() {
                                                         append(") ")
                                                         append(" auf ${departure.platformType} ${departure.platformName}")
                                                         if (departure.isCancelled) append(" Entfällt")
-                                                        else if (departure.delayInMinutes > 0) append(" +${departure.delayInMinutes}min")
-                                                        else if (departure.delayInMinutes < 0) append(" ${departure.delayInMinutes}min")
+                                                        else if (departure.delayInMinutes > 0) append(
+                                                            " +${departure.delayInMinutes}min"
+                                                        )
+                                                        else if (departure.delayInMinutes < 0) append(
+                                                            " ${departure.delayInMinutes}min"
+                                                        )
                                                     }
                                                 }
                                             )
