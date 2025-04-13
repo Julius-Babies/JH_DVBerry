@@ -94,11 +94,11 @@ data class Station(
                 append(it.line)
                 append(" in Richtung ")
                 append(it.destination)
-                append(((it.time.hour * 60 + it.time.minute).minutes - (LocalTime.now().hour * 60 + LocalTime.now().minute).minutes).inWholeMinutes.let { minutes ->
+                ((it.time.hour * 60 + it.time.minute).minutes - (LocalTime.now().hour * 60 + LocalTime.now().minute).minutes).inWholeMinutes.let { minutes ->
                     if (minutes == 0L) append(" jetzt")
                     else if (minutes > 60L) append(" um ${it.time}")
                     else append(" in $minutes Minuten")
-                })
+                }
                 append(" an ")
                 when(it.platformType) {
                     "Platform", "Tram" -> append("Steig")
