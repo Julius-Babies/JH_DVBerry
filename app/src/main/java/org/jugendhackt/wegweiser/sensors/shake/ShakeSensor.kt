@@ -20,7 +20,7 @@ class ShakeSensor(private val context: Context) {
                     it.values[0] * it.values[0] + it.values[1] * it.values[1] + it.values[2] * it.values[2]
                 if (a > 500)
                     Log.d("ACC", a.toString())
-                if (a > 1000)
+                if (a > 800)
                     listenerList.forEach { listener -> listener.invoke() }
             }
         }
