@@ -142,7 +142,7 @@ class MainActivity : AppCompatActivity() {
                                                         append(departure.destination)
                                                         append(" (")
                                                         append(departure.time)
-                                                        append(") ")
+                                                        append(")")
                                                         append(" auf ${departure.platformType} ${departure.platformName}")
                                                         if (departure.isCancelled) append(" Entfällt")
                                                         else if (departure.delayInMinutes > 0) append(
