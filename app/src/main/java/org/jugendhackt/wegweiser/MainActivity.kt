@@ -4,11 +4,11 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Looper
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresPermission
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
@@ -44,8 +44,6 @@ import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
-import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.launch
 import org.jugendhackt.wegweiser.app.checkPermission
 import org.jugendhackt.wegweiser.di.appModule
 import org.jugendhackt.wegweiser.ui.theme.WegweiserTheme
@@ -54,8 +52,9 @@ import org.koin.androidx.compose.KoinAndroidContext
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.core.context.GlobalContext.startKoin
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     val viewModel: MainViewModel by viewModel()
+    var hasLocationPermissionRequested = false
 
     private val fusedLocationClient: FusedLocationProviderClient by lazy {
         LocationServices.getFusedLocationProviderClient(applicationContext)
@@ -64,16 +63,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        startKoin {
-            androidContext(this@MainActivity)
-            modules(appModule)
-        }
-
         enableEdgeToEdge()
-        MainScope().launch {
-            if (checkPermission(this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION)) startLocationUpdates()
-            else requestPermissions()
-        }
+        if (checkPermission(this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION)) startLocationUpdates()
+        else requestPermissions()
 
         setContent {
             KoinAndroidContext {
@@ -193,6 +185,8 @@ class MainActivity : ComponentActivity() {
     }
 
     fun requestPermissions() {
+        if (hasLocationPermissionRequested) return
+        hasLocationPermissionRequested = true
         val locationPermissionRequest = registerForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions()
         ) { permissions ->
