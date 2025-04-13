@@ -33,6 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -83,10 +84,15 @@ class MainActivity : ComponentActivity() {
         setContent {
             KoinAndroidContext {
                 val shakeSensor = koinInject<ShakeSensor>()
-                shakeSensor.add {
-                    if (viewModel.isPlaying) return@add
-                    viewModel.onEvent(MainEvent.TogglePlayPause)
-                    Log.d("ACC", "ButtonToggle by Shaking")
+                LaunchedEffect(42) {
+                    var timeThreshold = 0L
+                    shakeSensor.add {
+//                        if (viewModel.isPlaying) return@add
+                        if (System.nanoTime() - timeThreshold < 1500000000L) return@add
+                        timeThreshold = System.nanoTime()
+                        viewModel.onEvent(MainEvent.TogglePlayPause)
+                        Log.d("ACC", "ButtonToggle by Shaking")
+                    }
                 }
                 WegweiserTheme {
                     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
