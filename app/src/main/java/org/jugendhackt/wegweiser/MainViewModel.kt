@@ -13,6 +13,7 @@ import org.jugendhackt.wegweiser.tts.TTS
 import java.time.LocalTime
 import kotlin.math.abs
 import kotlin.math.sqrt
+import kotlin.time.Duration.Companion.minutes
 
 class MainViewModel(
     private val dvbSource: DVBSource,
@@ -89,10 +90,17 @@ data class Station(
                 append(it.line)
                 append(" in Richtung ")
                 append(it.destination)
-                append(" um ")
-                append(it.time)
+                append(((it.time.hour * 60 + it.time.minute).minutes - (LocalTime.now().hour * 60 + LocalTime.now().minute).minutes).inWholeMinutes.let { minutes ->
+                    if (minutes == 0L) append(" jetzt")
+                    else if (minutes > 60L) append(" um ${it.time}")
+                    else append(" in $minutes Minuten")
+                })
                 append(" an ")
-                append(it.platformType)
+                when(it.platformType) {
+                    "Platform", "Tram" -> append("Steig")
+                    "Railtrack" -> append("Gleis")
+                    else -> append(it.platformType)
+                }
                 append(" ")
                 append(it.platformName)
                 if (it.isCancelled) append(" fällt heute aus")
