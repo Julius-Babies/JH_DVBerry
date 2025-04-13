@@ -1,4 +1,4 @@
-# JH_Wegweiser
+# <img src="https://raw.githubusercontent.com/Julius-Babies/JH_DVBerry/refs/heads/main/app/src/main/res/mipmap-xxhdpi/ic_launcher.webp" width="32px" height="32px" alt=""> DVBerry
 Dieses Projekt ist im Rahmen von [Jugend Hackt 2025 Dresden](https://jugendhackt.org/events/dresden/) entstanden.
 
 ## Das Projekt

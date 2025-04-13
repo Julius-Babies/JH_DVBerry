@@ -5,11 +5,11 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Looper
 import android.util.Log
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresPermission
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
@@ -25,6 +25,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material3.CircularProgressIndicator
@@ -45,8 +46,6 @@ import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
-import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.launch
 import org.jugendhackt.wegweiser.app.checkPermission
 import org.jugendhackt.wegweiser.di.appModule
 import org.jugendhackt.wegweiser.sensors.shake.ShakeSensor
@@ -57,8 +56,10 @@ import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.compose.koinInject
 import org.koin.core.context.GlobalContext.startKoin
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     val viewModel: MainViewModel by viewModel()
+    var hasLocationPermissionRequested = false
+
     private val fusedLocationClient: FusedLocationProviderClient by lazy {
         LocationServices.getFusedLocationProviderClient(applicationContext)
     }
@@ -66,20 +67,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        startKoin {
-            androidContext(this@MainActivity)
-            modules(appModule)
-        }
-
         enableEdgeToEdge()
-        MainScope().launch {
-            if (checkPermission(
-                    this@MainActivity,
-                    Manifest.permission.ACCESS_FINE_LOCATION
-                )
-            ) startLocationUpdates()
-            else requestPermissions()
-        }
+        if (checkPermission(this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION)) startLocationUpdates()
+        else requestPermissions()
 
         setContent {
             KoinAndroidContext {
@@ -169,7 +159,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            PlayPauseButton(viewModel.isPlaying) { viewModel.onEvent(MainEvent.TogglePlayPause) }
+                            PlayPauseButton(viewModel.isPlaying, viewModel.canPlay) { viewModel.onEvent(MainEvent.TogglePlayPause) }
 
                             Spacer(modifier = Modifier.height(24.dp))
                         }
@@ -182,6 +172,10 @@ class MainActivity : ComponentActivity() {
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     private fun startLocationUpdates() {
         val locationRequest = LocationRequest.Builder(1000).build()
+
+        fusedLocationClient.lastLocation.addOnSuccessListener {
+            viewModel.onEvent(MainEvent.LocationUpdate(it.latitude, it.longitude))
+        }
 
         fusedLocationClient.requestLocationUpdates(
             locationRequest,
@@ -210,6 +204,8 @@ class MainActivity : ComponentActivity() {
     }
 
     fun requestPermissions() {
+        if (hasLocationPermissionRequested) return
+        hasLocationPermissionRequested = true
         val locationPermissionRequest = registerForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions()
         ) { permissions ->
@@ -267,6 +263,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ColumnScope.PlayPauseButton(
     isPlaying: Boolean,
+    canPlay: Boolean,
     onClick: () -> Unit
 ) {
     Box(
@@ -275,13 +272,13 @@ fun ColumnScope.PlayPauseButton(
             .fillMaxWidth()
             .padding(8.dp)
             .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick, enabled = canPlay),
         contentAlignment = Alignment.Center
     ) {
         AnimatedContent(
             targetState = isPlaying,
         ) { isPlaying ->
-            if (isPlaying) {
+            if (isPlaying && canPlay) {
                 Icon(
                     imageVector = Icons.Outlined.Stop,
                     contentDescription = "Stop",
@@ -289,10 +286,18 @@ fun ColumnScope.PlayPauseButton(
                         .padding(24.dp)
                         .fillMaxSize()
                 )
-            } else {
+            } else if ((!isPlaying) && canPlay) {
                 Icon(
                     imageVector = Icons.Outlined.PlayArrow,
                     contentDescription = "Play",
+                    modifier = Modifier
+                        .padding(24.dp)
+                        .fillMaxSize()
+                )
+            } else if (!canPlay) {
+                Icon(
+                    imageVector = Icons.Outlined.Block,
+                    contentDescription = "Stop is still loading",
                     modifier = Modifier
                         .padding(24.dp)
                         .fillMaxSize()
