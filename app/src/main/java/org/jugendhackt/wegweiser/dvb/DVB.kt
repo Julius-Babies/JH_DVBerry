@@ -3,6 +3,7 @@ package org.jugendhackt.wegweiser.dvb
 import android.content.Context
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.ui.text.toLowerCase
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.get
@@ -24,6 +25,7 @@ import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.util.Locale
 
 @Serializable
 data class Haltestelle(
@@ -74,7 +76,11 @@ class DVBSource(
                     destination = it.direction,
                     time = extractLocalTimeFromDateString(it.realTime ?: it.scheduleTime),
                     platformName = it.platform.name,
-                    platformType = it.platform.type,
+                    platformType = when (it.platform.type.lowercase(Locale.ROOT)) {
+                        "platform", "tram" -> "Steig"
+                        "railtrack" -> "Gleis"
+                        else -> it.platform.type
+                    },
                     delayInMinutes = it.realTime?.let { realTime ->
                         val plannedTime = extractLocalTimeFromDateString(it.scheduleTime)
                         val actualTime = extractLocalTimeFromDateString(realTime)

@@ -134,6 +134,7 @@ class MainActivity : ComponentActivity() {
                                                         append(" (")
                                                         append(departure.time)
                                                         append(") ")
+                                                        append(" auf ${departure.platformType} ${departure.platformName}")
                                                         if (departure.isCancelled) append(" Entfällt")
                                                         else if (departure.delayInMinutes > 0) append(" +${departure.delayInMinutes}min")
                                                         else if (departure.delayInMinutes < 0) append(" ${departure.delayInMinutes}min")
