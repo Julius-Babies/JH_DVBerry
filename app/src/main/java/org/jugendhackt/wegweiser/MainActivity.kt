@@ -160,6 +160,10 @@ class MainActivity : ComponentActivity() {
     private fun startLocationUpdates() {
         val locationRequest = LocationRequest.Builder(1000).build()
 
+        fusedLocationClient.lastLocation.addOnSuccessListener {
+            viewModel.onEvent(MainEvent.LocationUpdate(it.latitude, it.longitude))
+        }
+
         fusedLocationClient.requestLocationUpdates(
             locationRequest,
             locationCallback,
