@@ -24,6 +24,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material3.CircularProgressIndicator
@@ -55,6 +56,7 @@ import org.koin.core.context.GlobalContext.startKoin
 
 class MainActivity : ComponentActivity() {
     val viewModel: MainViewModel by viewModel()
+
     private val fusedLocationClient: FusedLocationProviderClient by lazy {
         LocationServices.getFusedLocationProviderClient(applicationContext)
     }
@@ -146,7 +148,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            PlayPauseButton(viewModel.isPlaying) { viewModel.onEvent(MainEvent.TogglePlayPause) }
+                            PlayPauseButton(viewModel.isPlaying, viewModel.canPlay) { viewModel.onEvent(MainEvent.TogglePlayPause) }
 
                             Spacer(modifier = Modifier.height(24.dp))
                         }
@@ -248,6 +250,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ColumnScope.PlayPauseButton(
     isPlaying: Boolean,
+    canPlay: Boolean,
     onClick: () -> Unit
 ) {
     Box(
@@ -256,13 +259,13 @@ fun ColumnScope.PlayPauseButton(
             .fillMaxWidth()
             .padding(8.dp)
             .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick, enabled = canPlay),
         contentAlignment = Alignment.Center
     ) {
         AnimatedContent(
             targetState = isPlaying,
         ) { isPlaying ->
-            if (isPlaying) {
+            if (isPlaying && canPlay) {
                 Icon(
                     imageVector = Icons.Outlined.Stop,
                     contentDescription = "Stop",
@@ -270,10 +273,18 @@ fun ColumnScope.PlayPauseButton(
                         .padding(24.dp)
                         .fillMaxSize()
                 )
-            } else {
+            } else if ((!isPlaying) && canPlay) {
                 Icon(
                     imageVector = Icons.Outlined.PlayArrow,
                     contentDescription = "Play",
+                    modifier = Modifier
+                        .padding(24.dp)
+                        .fillMaxSize()
+                )
+            } else if (!canPlay) {
+                Icon(
+                    imageVector = Icons.Outlined.Block,
+                    contentDescription = "Stop is still loading",
                     modifier = Modifier
                         .padding(24.dp)
                         .fillMaxSize()

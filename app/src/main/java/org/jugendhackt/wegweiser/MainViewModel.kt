@@ -28,6 +28,9 @@ class MainViewModel(
     var isPlaying by mutableStateOf(false)
         private set
 
+    var canPlay by mutableStateOf(false)
+        private set
+
     private val stops: List<Station> = dvbSource.getStations()
     var nearestStops by mutableStateOf<Station?>(null)
         private set
@@ -48,6 +51,7 @@ class MainViewModel(
                                 ?.distinctBy { it.line + it.destination + it.platformName + it.platformType }
                                 .orEmpty()
                         )
+                        canPlay = nearestStops != null
                     } else {
                         Log.d("MainViewModel", "No changes to nearest stops")
                     }
