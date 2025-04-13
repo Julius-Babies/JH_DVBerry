@@ -115,7 +115,7 @@ data class Station(
                     if (it.delayInMinutes > 0) append(" später")
                     else append(" früher")
                 }
-                append(". ")
+                append(" . ")
             }
         }
     }
