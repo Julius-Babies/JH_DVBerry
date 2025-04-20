@@ -47,14 +47,12 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import org.jugendhackt.wegweiser.app.checkPermission
-import org.jugendhackt.wegweiser.di.appModule
+import org.jugendhackt.wegweiser.language.language
 import org.jugendhackt.wegweiser.sensors.shake.ShakeSensor
 import org.jugendhackt.wegweiser.ui.theme.WegweiserTheme
-import org.koin.android.ext.koin.androidContext
 import org.koin.androidx.compose.KoinAndroidContext
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.compose.koinInject
-import org.koin.core.context.GlobalContext.startKoin
 
 class MainActivity : AppCompatActivity() {
     val viewModel: MainViewModel by viewModel()
@@ -89,6 +87,9 @@ class MainActivity : AppCompatActivity() {
                         Log.d("ACC", "ButtonToggle by Shaking")
                     }
                 }
+
+                val language = language(this)
+
                 WegweiserTheme {
                     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                         Column(
@@ -135,7 +136,7 @@ class MainActivity : AppCompatActivity() {
                                             )
                                             Spacer(Modifier.height(16.dp))
                                             Text(
-                                                text = "Nächste Abfahrten",
+                                                text = language.getString("ui.next_departures"),
                                                 style = MaterialTheme.typography.titleLarge
                                             )
                                             Text(
@@ -147,8 +148,8 @@ class MainActivity : AppCompatActivity() {
                                                         append(departure.destination)
                                                         append(" (")
                                                         append(departure.time)
-                                                        append(") auf ${departure.platformType} ${departure.platformName}")
-                                                        if (departure.isCancelled) append(" Entfällt")
+                                                        append(") ${language.getString("ui.at")} ${departure.platformType} ${departure.platformName}")
+                                                        if (departure.isCancelled) append(" ${language.getString("ui.isCancelled")}")
                                                         else if (departure.delayInMinutes > 0) append(
                                                             " +${departure.delayInMinutes}min"
                                                         )

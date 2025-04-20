@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 import org.jugendhackt.wegweiser.dvb.DVBSource
+import org.jugendhackt.wegweiser.language.language
 import org.jugendhackt.wegweiser.tts.TTS
 import java.time.LocalTime
 import kotlin.math.abs
@@ -17,7 +18,8 @@ import kotlin.time.Duration.Companion.minutes
 
 class MainViewModel(
     private val dvbSource: DVBSource,
-    private val tts: TTS
+    private val tts: TTS,
+    private val language: language
 ) : ViewModel() {
     var latitude: Double by mutableDoubleStateOf(0.0)
         private set
@@ -60,7 +62,7 @@ class MainViewModel(
                     isPlaying = !isPlaying
                     if (isPlaying) {
                         nearestStops?.let {
-                            val speak = it.buildTTSSpeakableString()
+                            val speak = it.buildTTSSpeakableString(language)
 //                            Log.d("TTS", "TTS - Speaking invoke: \n $speak")
                             tts.speak(speak) { isPlaying = false }
                         }
@@ -85,37 +87,37 @@ data class Station(
     val latitude: Double,
     val departures: List<Departure>
 ) {
-    fun buildTTSSpeakableString(): String {
+    fun buildTTSSpeakableString(language: language): String {
         return buildString {
-            append("Haltestelle ")
+            append("${language.getString("tts.hold")} ")
             append(name)
-            append(". Nächste Abfahrten: ")
+            append(". ${language.getString("tts.next_departures")}: ")
 //            Log.d("TTS", "Depature Amount: ${departures.size}")
             departures.forEach {
-                append("Linie ")
-                append(it.line)
-                append(" in Richtung ")
+                append("${language.getString("tts.line")} ")
+                append(it.line.replace(Regex("(?<=[A-Za-z])(?=\\d)"), " ")) // to make sure that the line is spoken correctly ("S80" -> "S 80")
+                append(" ${language.getString("tts.in_direction")} ")
                 append(it.destination)
                 ((it.time.hour * 60 + it.time.minute).minutes - (LocalTime.now().hour * 60 + LocalTime.now().minute).minutes).inWholeMinutes.let { minutes ->
-                    if (minutes == 0L) append(" jetzt")
-                    else if (minutes > 60L) append(" um ${it.time}")
-                    else append(" in $minutes Minuten")
+                    if (minutes == 0L) append(" ${language.getString("tts.now")}")
+                    else if (minutes > 60L) append(" ${language.getString("tts.at_time")} ${it.time}")
+                    else append(" ${language.getString("tts.in")} $minutes ${language.getString("tts.minutes")}")
                 }
-                append(" an ")
+                append(" ${language.getString("tts.at")} ")
                 when(it.platformType) {
-                    "Platform", "Tram" -> append("Steig")
-                    "Railtrack" -> append("Gleis")
+                    "Platform", "Tram" -> append(language.getString("tts.platform"))
+                    "Railtrack" -> append(language.getString("tts.railtrack"))
                     else -> append(it.platformType)
                 }
                 append(" ")
                 append(it.platformName)
-                if (it.isCancelled) append(" fällt heute aus")
+                if (it.isCancelled) append(" ${language.getString("tts.isCancelled")}")
                 else if (it.delayInMinutes != 0) {
-                    append(", heute ")
-                    if (abs(it.delayInMinutes) == 1) append(" eine Minute ")
-                    else append(" ${abs(it.delayInMinutes)} Minuten ")
-                    if (it.delayInMinutes > 0) append(" später")
-                    else append(" früher")
+                    append(", ${language.getString("tts.today")} ")
+                    if (abs(it.delayInMinutes) == 1) append(" ${language.getString("tts.one_minute")} ")
+                    else append(" ${abs(it.delayInMinutes)} ${language.getString("tts.minutes")} ")
+                    if (it.delayInMinutes > 0) append(" ${language.getString("tts.later")}")
+                    else append(" ${language.getString("tts.earlier")}")
                 }
                 append(" . ")
             }

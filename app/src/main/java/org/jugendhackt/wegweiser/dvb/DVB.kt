@@ -1,9 +1,6 @@
 package org.jugendhackt.wegweiser.dvb
 
 import android.content.Context
-import android.os.Build
-import androidx.annotation.RequiresApi
-import androidx.compose.ui.text.toLowerCase
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.get
@@ -12,7 +9,6 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.URLProtocol
 import io.ktor.http.isSuccess
-import kotlinx.coroutines.delay
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -26,6 +22,7 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.Locale
+import org.jugendhackt.wegweiser.language.language
 
 @Serializable
 data class Haltestelle(
@@ -53,6 +50,7 @@ class DVBSource(
     private val context: Context
 ) {
     private val json = Json { ignoreUnknownKeys = true }
+    private val language = language(context)
 
     suspend fun departureMonitor(stopID: String, limit: Int): Station? {
         val client = HttpClient(CIO)
@@ -77,8 +75,8 @@ class DVBSource(
                     time = extractLocalTimeFromDateString(it.realTime ?: it.scheduleTime),
                     platformName = it.platform.name,
                     platformType = when (it.platform.type.lowercase(Locale.ROOT)) {
-                        "platform", "tram" -> "Steig"
-                        "railtrack" -> "Gleis"
+                        "platform", "tram" -> language.getString("dvb.platform")
+                        "railtrack" -> language.getString("dvb.railtrack")
                         else -> it.platform.type
                     },
                     delayInMinutes = it.realTime?.let { realTime ->
