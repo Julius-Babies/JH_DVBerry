@@ -6,6 +6,7 @@ class en {
         "ui.next_departures" to "Next departures",
         "ui.isCancelled" to "Cancelled",
         "ui.at" to "at",
+        "ui.abbreviation_minutes" to "min",
         "dvb.railtrack" to "Track",
         "dvb.platform" to "Platform",
         "tts.hold" to "Stop",

@@ -6,6 +6,7 @@ class de {
         "ui.next_departures" to "Nächsten Abfahrten",
         "ui.isCancelled" to "Entfällt",
         "ui.at" to "auf",
+        "ui.abbreviation_minutes" to "min",
         "dvb.railtrack" to "Gleis",
         "dvb.platform" to "Steig",
         "tts.hold" to "Haltestelle",

@@ -135,7 +135,7 @@ class MainActivity : AppCompatActivity() {
                                             )
                                             Spacer(Modifier.height(16.dp))
                                             Text(
-                                                text = language.getString("ui.next_departures"),
+                                                text = "${language.getString("ui.next_departures")}: ",
                                                 style = MaterialTheme.typography.titleLarge
                                             )
                                             Text(
@@ -150,10 +150,10 @@ class MainActivity : AppCompatActivity() {
                                                         append(") ${language.getString("ui.at")} ${departure.platformType} ${departure.platformName}")
                                                         if (departure.isCancelled) append(" ${language.getString("ui.isCancelled")}")
                                                         else if (departure.delayInMinutes > 0) append(
-                                                            " +${departure.delayInMinutes}min"
+                                                            " +${departure.delayInMinutes}${language.getString("ui.abbreviation_minutes")}"
                                                         )
                                                         else if (departure.delayInMinutes < 0) append(
-                                                            " ${departure.delayInMinutes}min"
+                                                            " ${departure.delayInMinutes}${language.getString("ui.abbreviation_minutes")}"
                                                         )
                                                     }
                                                 }

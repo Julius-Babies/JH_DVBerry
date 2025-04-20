@@ -95,7 +95,7 @@ data class Station(
                 append("${language.getString("tts.line")} ")
                 append(it.line.replace(Regex("(?<=[A-Za-z])(?=\\d)"), " ")) // to make sure that the line is spoken correctly ("S80" -> "S 80")
                 append(" ${language.getString("tts.in_direction")} ")
-                append(it.destination)
+                append(it.destination.replace(" Bahnhof", ""))  // for better pronunciation and closer to the actual text that the DB uses for announcements
                 ((it.time.hour * 60 + it.time.minute).minutes - (LocalTime.now().hour * 60 + LocalTime.now().minute).minutes).inWholeMinutes.let { minutes ->
                     if (minutes == 0L) append(" ${language.getString("tts.now")}")
                     else if (minutes > 60L) append(" ${language.getString("tts.at_time")} ${it.time}")
