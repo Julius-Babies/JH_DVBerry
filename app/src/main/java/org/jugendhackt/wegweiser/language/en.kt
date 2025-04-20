@@ -26,6 +26,9 @@ class en {
         "tts.one_minute" to "one minute",
         "tts.later" to "later",
         "tts.earlier" to "earlier",
+        "contentDescription.play" to "Play",
+        "contentDescription.stop" to "Stop",
+        "contentDescription.loading" to "Loading",
     )
 
     fun getString(key: String): String {

@@ -21,7 +21,6 @@ import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
-import java.util.Locale
 
 @Serializable
 data class Haltestelle(

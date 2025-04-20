@@ -26,6 +26,9 @@ class de {
         "tts.one_minute" to "einer Minute",
         "tts.later" to "später",
         "tts.earlier" to "früher",
+        "contentDescription.play" to "Abspielen",
+        "contentDescription.stop" to "Stop",
+        "contentDescription.loading" to "Laden",
     )
 
 

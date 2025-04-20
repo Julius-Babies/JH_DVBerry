@@ -169,7 +169,8 @@ class MainActivity : AppCompatActivity() {
 
                             PlayPauseButton(
                                 viewModel.isPlaying,
-                                viewModel.canPlay
+                                viewModel.canPlay,
+                                language = language
                             ) { viewModel.onEvent(MainEvent.TogglePlayPause) }
 
                             Spacer(modifier = Modifier.height(24.dp))
@@ -275,6 +276,7 @@ class MainActivity : AppCompatActivity() {
 fun ColumnScope.PlayPauseButton(
     isPlaying: Boolean,
     canPlay: Boolean,
+    language: language,
     onClick: () -> Unit
 ) {
     Box(
@@ -292,7 +294,7 @@ fun ColumnScope.PlayPauseButton(
             if (isPlaying && canPlay) {
                 Icon(
                     imageVector = Icons.Outlined.Stop,
-                    contentDescription = "Stop",
+                    contentDescription = language.getString("contentDescription.stop"),
                     modifier = Modifier
                         .padding(24.dp)
                         .fillMaxSize()
@@ -300,15 +302,15 @@ fun ColumnScope.PlayPauseButton(
             } else if ((!isPlaying) && canPlay) {
                 Icon(
                     imageVector = Icons.Outlined.PlayArrow,
-                    contentDescription = "Play",
+                    contentDescription = language.getString("contentDescription.play"),
                     modifier = Modifier
                         .padding(24.dp)
                         .fillMaxSize()
                 )
-            } else if (!canPlay) {
+            } else {
                 Icon(
                     imageVector = Icons.Outlined.Block,
-                    contentDescription = "Stop is still loading",
+                    contentDescription = language.getString("contentDescription.loading"),
                     modifier = Modifier
                         .padding(24.dp)
                         .fillMaxSize()
