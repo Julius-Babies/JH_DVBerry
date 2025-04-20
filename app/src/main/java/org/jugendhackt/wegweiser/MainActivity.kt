@@ -79,7 +79,6 @@ class MainActivity : AppCompatActivity() {
                 LaunchedEffect(42) {
                     var timeThreshold = 0L
                     shakeSensor.add {
-//                        if (viewModel.isPlaying) return@add
                         if (System.nanoTime() - timeThreshold < 1500000000L) return@add
                         if (viewModel.nearestStops == null) return@add
                         timeThreshold = System.nanoTime()

@@ -63,7 +63,6 @@ class MainViewModel(
                     if (isPlaying) {
                         nearestStops?.let {
                             val speak = it.buildTTSSpeakableString(language)
-//                            Log.d("TTS", "TTS - Speaking invoke: \n $speak")
                             tts.speak(speak) { isPlaying = false }
                         }
                     } else {
@@ -92,7 +91,6 @@ data class Station(
             append("${language.getString("tts.hold")} ")
             append(name)
             append(". ${language.getString("tts.next_departures")}: ")
-//            Log.d("TTS", "Depature Amount: ${departures.size}")
             departures.forEach {
                 append("${language.getString("tts.line")} ")
                 append(it.line.replace(Regex("(?<=[A-Za-z])(?=\\d)"), " ")) // to make sure that the line is spoken correctly ("S80" -> "S 80")

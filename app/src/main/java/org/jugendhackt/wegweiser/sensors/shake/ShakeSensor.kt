@@ -6,7 +6,6 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.util.Log
-import kotlin.math.sqrt
 
 class ShakeSensor(private val context: Context) {
     private val listenerList = mutableListOf<() -> Unit>()
