@@ -22,7 +22,6 @@ import java.time.LocalTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.Locale
-import org.jugendhackt.wegweiser.language.language
 
 @Serializable
 data class Haltestelle(
@@ -50,7 +49,6 @@ class DVBSource(
     private val context: Context
 ) {
     private val json = Json { ignoreUnknownKeys = true }
-    private val language = language(context)
 
     suspend fun departureMonitor(stopID: String, limit: Int): Station? {
         val client = HttpClient(CIO)
@@ -74,11 +72,7 @@ class DVBSource(
                     destination = it.direction,
                     time = extractLocalTimeFromDateString(it.realTime ?: it.scheduleTime),
                     platformName = it.platform.name,
-                    platformType = when (it.platform.type.lowercase(Locale.ROOT)) {
-                        "platform", "tram" -> language.getString("dvb.platform")
-                        "railtrack" -> language.getString("dvb.railtrack")
-                        else -> it.platform.type
-                    },
+                    platformType = it.platform.type,
                     delayInMinutes = it.realTime?.let { realTime ->
                         val plannedTime = extractLocalTimeFromDateString(it.scheduleTime)
                         val actualTime = extractLocalTimeFromDateString(realTime)

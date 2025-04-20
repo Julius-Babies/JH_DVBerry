@@ -147,7 +147,11 @@ class MainActivity : AppCompatActivity() {
                                                         append(departure.destination)
                                                         append(" (")
                                                         append(departure.time)
-                                                        append(") ${language.getString("ui.at")} ${departure.platformType} ${departure.platformName}")
+                                                        append(") ${language.getString("ui.at")} ${when(departure.platformType) {
+                                                            "Platform", "Tram" -> language.getString("ui.platform")
+                                                            "Railtrack" -> language.getString("ui.railtrack")
+                                                            else -> departure.platformType }
+                                                        } ${departure.platformName}")
                                                         if (departure.isCancelled) append(" ${language.getString("ui.isCancelled")}")
                                                         else if (departure.delayInMinutes > 0) append(
                                                             " +${departure.delayInMinutes}${language.getString("ui.abbreviation_minutes")}"

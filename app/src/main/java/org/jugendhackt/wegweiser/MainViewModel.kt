@@ -92,7 +92,11 @@ data class Station(
             append(name)
             append(". ${language.getString("tts.next_departures")}: ")
             departures.forEach {
-                append("${language.getString("tts.line")} ")
+                when(it.platformType) {
+                    "Platform", "Tram" -> append("${language.getString("tts.line")} ")
+                    "Railtrack" -> append(" ")
+                    else -> append(" ")
+                }
                 append(it.line.replace(Regex("(?<=[A-Za-z])(?=\\d)"), " ")) // to make sure that the line is spoken correctly ("S80" -> "S 80")
                 append(" ${language.getString("tts.in_direction")} ")
                 append(it.destination.replace(" Bahnhof", ""))  // for better pronunciation and closer to the actual text that the DB uses for announcements
