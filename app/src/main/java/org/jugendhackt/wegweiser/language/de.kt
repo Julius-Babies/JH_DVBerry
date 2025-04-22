@@ -31,7 +31,6 @@ class de {
         "contentDescription.loading" to "Laden",
     )
 
-
     fun getString(key: String): String {
         return language[key] ?: key
     }
