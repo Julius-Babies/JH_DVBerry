@@ -2,12 +2,15 @@ package org.jugendhackt.wegweiser
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
+import android.os.HandlerThread
 import android.os.Looper
+import android.provider.Settings
 import android.util.Log
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -64,6 +67,7 @@ class MainActivity : AppCompatActivity() {
     val viewModel: MainViewModel by viewModel()
     var hasLocationPermissionRequested = false
     private lateinit var locationManager: LocationManager
+    private val locationHandlerThread = HandlerThread("LocationThread").apply { start() }
 
     private val locationListener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
@@ -73,6 +77,7 @@ class MainActivity : AppCompatActivity() {
 
         override fun onProviderDisabled(provider: String) {
             Log.w(TAG, "Location provider disabled: $provider")
+            checkProviderAvailability()
         }
     }
 
@@ -83,13 +88,7 @@ class MainActivity : AppCompatActivity() {
         locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
 
         enableEdgeToEdge()
-        if (checkPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
-            Log.d(TAG, "Permission already granted")
-            startLocationUpdatesIfPossible()
-        } else {
-            Log.d(TAG, "Requesting permission")
-            requestPermissions()
-        }
+        checkLocationAvailability()
 
         setContent {
             KoinAndroidContext {
@@ -128,12 +127,36 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        locationHandlerThread.quitSafely()
+    }
+
+    private fun checkLocationAvailability() {
+        if (checkPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
+            Log.d(TAG, "Permission already granted")
+            startLocationUpdatesIfPossible()
+        } else {
+            Log.d(TAG, "Requesting permission")
+            requestPermissions()
+        }
+    }
+
     @SuppressLint("MissingPermission")
     @RequiresPermission(Manifest.permission.ACCESS_FINE_LOCATION)
     private fun startLocationUpdates(highAccuracy: Boolean) {
         try {
-            val provider = if (highAccuracy) LocationManager.GPS_PROVIDER
-            else LocationManager.NETWORK_PROVIDER
+            val provider = when {
+                highAccuracy && locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ->
+                    LocationManager.GPS_PROVIDER
+                locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER) ->
+                    LocationManager.NETWORK_PROVIDER
+                else -> {
+                    Log.e(TAG, "No available location providers")
+                    showProviderErrorDialog()
+                    return
+                }
+            }
 
             Log.d(TAG, "Starting location updates with: $provider")
             locationManager.requestLocationUpdates(
@@ -141,7 +164,7 @@ class MainActivity : AppCompatActivity() {
                 1000L,
                 1f,
                 locationListener,
-                Looper.getMainLooper()
+                locationHandlerThread.looper
             )
         } catch (e: SecurityException) {
             Log.e(TAG, "Location permission error", e)
@@ -151,26 +174,49 @@ class MainActivity : AppCompatActivity() {
     private fun startLocationUpdatesIfPossible() {
         if (checkPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
             && ::locationManager.isInitialized
+            && (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+                    || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER))
         ) {
             Log.d(TAG, "Starting location updates")
             startLocationUpdates(true)
+        } else {
+            Log.e(TAG, "Can't start location updates")
+            checkProviderAvailability()
         }
+    }
+
+    private fun checkProviderAvailability() {
+        val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+        val isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+
+        if (!isGpsEnabled && !isNetworkEnabled) {
+            showProviderErrorDialog()
+        }
+    }
+
+    private fun showProviderErrorDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Standortdienst benötigt")
+            .setMessage("Bitte aktivieren Sie GPS oder Netzwerk-basierte Standortdienste.")
+            .setPositiveButton("Einstellungen öffnen") { _, _ ->
+                // Intent korrekt erstellen
+                val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                startActivity(intent)
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
     }
 
     override fun onPause() {
         super.onPause()
         Log.d(TAG, "onPause")
-        locationManager.removeUpdates(locationListener)
+        locationManager.removeUpdates(locationListener) // Typo korrigiert
     }
 
     override fun onResume() {
         super.onResume()
         Log.d(TAG, "onResume")
-        if (checkPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
-            startLocationUpdatesIfPossible()
-        } else {
-            requestPermissions()
-        }
+        checkLocationAvailability()
     }
 
     private fun requestPermissions() {
