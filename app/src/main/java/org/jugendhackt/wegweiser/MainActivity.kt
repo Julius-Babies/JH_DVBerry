@@ -41,7 +41,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
-import com.google.android.gms.location.FusedLocationProviderClient
 import android.location.LocationManager
 import android.location.Location
 import android.location.LocationListener
@@ -53,32 +52,35 @@ import org.koin.androidx.compose.KoinAndroidContext
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.compose.koinInject
 
-
 class MainActivity : AppCompatActivity() {
-    // 1. ViewModel mit korrekter Lazy-Initialisierung
-    private val viewModel: MainViewModel by viewModel()
+    val viewModel: MainViewModel by viewModel()
+    var hasLocationPermissionRequested = false
+    private lateinit var locationManager: LocationManager
 
-    // 2. LocationListener erst NACH ViewModel deklarieren
     private val locationListener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
-            // 3. ViewModel ist jetzt initialisiert
-            viewModel.onEvent(MainEvent.LocationUpdate(
-                location.latitude,
-                location.longitude
-            ))
+            viewModel.onEvent(
+                MainEvent.LocationUpdate(
+                    location.latitude,
+                    location.longitude
+                )
+            )
         }
 
+        override fun onProviderEnabled(provider: String) {
+            Log.d("Location", "Provider aktiviert: $provider")
+        }
+
+        override fun onProviderDisabled(provider: String) {
+            Log.w("Location", "Provider deaktiviert: $provider")
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
-        locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
         super.onCreate(savedInstanceState)
+        locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
 
         enableEdgeToEdge()
-        if (checkPermission(
-                this@MainActivity,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            )
-        ) startLocationUpdates()
-        else requestPermissions()
 
         setContent {
             KoinAndroidContext {
@@ -109,7 +111,8 @@ class MainActivity : AppCompatActivity() {
                                     .weight(1f)
                             ) {
                                 AnimatedContent(
-                                    targetState = viewModel.nearestStops == null
+                                    targetState = viewModel.nearestStops == null,
+                                    label = ""
                                 ) { isLoading ->
                                     if (isLoading) {
                                         Box(
@@ -154,10 +157,11 @@ class MainActivity : AppCompatActivity() {
                                                         append(departure.destination)
                                                         append(" (")
                                                         append(departure.time)
-                                                        append(") ${language.getString("ui.at")} ${when(departure.platformType) {
+                                                        append(") ${language.getString("ui.at")} ${when (departure.platformType) {
                                                             "Platform", "Tram" -> language.getString("ui.platform")
                                                             "Railtrack" -> language.getString("ui.railtrack")
-                                                            else -> departure.platformType }
+                                                            else -> departure.platformType
+                                                        }
                                                         } ${departure.platformName}")
                                                         if (departure.isCancelled) append(" ${language.getString("ui.isCancelled")}")
                                                         else if (departure.delayInMinutes > 0) append(
@@ -185,161 +189,43 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
-        }
-    }
+            @RequiresPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+            private fun startLocationUpdates() {
+                try {
+                    val providers = listOf(
+                        LocationManager.GPS_PROVIDER,
+                        LocationManager.NETWORK_PROVIDER
+                    ).filter { locationManager.isProviderEnabled(it) }
 
-    @RequiresPermission(Manifest.permission.ACCESS_FINE_LOCATION) // Oder ACCESS_COARSE_LOCATION je nach Provider
-    private fun startLocationUpdates() {
-        try {
-            val providers = listOf(
-                LocationManager.GPS_PROVIDER,
-                LocationManager.NETWORK_PROVIDER
-            ).filter { locationManager.isProviderEnabled(it) }
+                    if (providers.isEmpty()) {
+                        Log.w("Location", "Kein Provider verfügbar")
+                        return
+                    }
 
-            if (providers.isEmpty()) {
-                Log.w("Location", "Kein Provider verfügbar")
-                return
-            }
-                // Live-Updates
-            providers.forEach { provider ->
-                locationManager.requestLocationUpdates(
-                    provider,
-                    1000L,
-                    1f,
-                    locationListener!!,
-                    Looper.getMainLooper()
-                )
+                    providers.forEach { provider ->
+                        locationManager.requestLocationUpdates(
+                            provider,
+                            1000L,
+                            1f,
+                            locationListener,
+                            Looper.getMainLooper()
+                        )
+                    }
+                } catch (e: SecurityException) {
+                    Log.e("Location", "Berechtigungsfehler: ${e.message}")
                 }
-            } catch (e: SecurityException) {
-            Log.e("Location", "Berechtigungsfehler: ${e.message}")
-        }
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        if (checkPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)) startLocationUpdates()
-        else requestPermissions()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        locationListener?.let {
-            locationManager.removeUpdates(it)
-        }
-    }
-
-private val locationListener = object : LocationListener {
-    override fun onLocationChanged(location: Location) {
-        viewModel.onEvent(MainEvent.LocationUpdate(
-            location.latitude,
-            location.longitude
-        ))
-    }
-
-    override fun onProviderEnabled(provider: String) {
-        Log.d("Location", "Provider aktiviert: $provider")
-    }
-
-    override fun onProviderDisabled(provider: String) {
-        Log.w("Location", "Provider deaktiviert: $provider")
-    }
-}
-
-fun requestPermissions() {
-    if (hasLocationPermissionRequested) return
-    hasLocationPermissionRequested = true
-
-    val locationPermissionRequest = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        when {
-            permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) -> {
-                startLocationUpdates()
             }
-            permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {
-                locationManager.requestLocationUpdates(
-                    LocationManager.NETWORK_PROVIDER,
-                    1000L,
-                    10f,
-                    locationListener,
-                    Looper.getMainLooper()
-                )
-            }
-            else -> {
-                Log.w("Permission", "Keine Standortberechtigung erteilt")
-            }
-        }
-    }
 
-    if (ActivityCompat.shouldShowRequestPermissionRationale(
-            this,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        )
-    ) {
-        // Dialog zur Erklärung anzeigen
-        showRationaleDialog {
-            locationPermissionRequest.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                )
-            )
-        }
-    } else {
-        locationPermissionRequest.launch(
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            )
-        )
-    }
-}
-
-@Composable
-fun ColumnScope.PlayPauseButton(
-    isPlaying: Boolean,
-    canPlay: Boolean,
-    language: language,
-    onClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .weight(1f)
-            .fillMaxWidth()
-            .padding(8.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick, enabled = canPlay),
-        contentAlignment = Alignment.Center
-    ) {
-        AnimatedContent(
-            targetState = isPlaying,
-        ) { isPlaying ->
-            if (isPlaying && canPlay) {
-                Icon(
-                    imageVector = Icons.Outlined.Stop,
-                    contentDescription = language.getString("contentDescription.stop"),
-                    modifier = Modifier
-                        .padding(24.dp)
-                        .fillMaxSize()
-                )
-            } else if ((!isPlaying) && canPlay) {
-                Icon(
-                    imageVector = Icons.Outlined.PlayArrow,
-                    contentDescription = language.getString("contentDescription.play"),
-                    modifier = Modifier
-                        .padding(24.dp)
-                        .fillMaxSize()
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Outlined.Block,
-                    contentDescription = language.getString("contentDescription.loading"),
-                    modifier = Modifier
-                        .padding(24.dp)
-                        .fillMaxSize()
-                )
+            override fun onResume() {
+                super.onResume()
+                if (checkPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
+                    startLocationUpdates()
+                } else {
+                    requestPermissions()
+                }
             }
-        }
-    }
-}
+
+            override fun onPause() {
+                super.onPause()
+                locationListener.let {
+                    locationManager.removeUpdates(it)
