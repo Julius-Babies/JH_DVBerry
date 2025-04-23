@@ -25,18 +25,14 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: 17
+          cache: 'gradle'
+          cache-dependency-path: |
+            ${{ github.workspace }}/gradle/wrapper/gradle-wrapper.properties
+            ${{ github.workspace }}/**/*.gradle*
 
       # Setup Android SDK
       - name: Setup Android SDK
         uses: android-actions/setup-android@v2
-
-      - name: Setup Gradle Cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-${{ hashFiles('${GITHUB_WORKSPACE}/gradle/libs.versions.toml') }}-${{ hashFiles('${GITHUB_WORKSPACE}/gradle/wrapper/gradle-wrapper.properties') }}-${{ hashFiles('${GITHUB_WORKSPACE}/app/build.gradle.kts') }}
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
