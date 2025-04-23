@@ -9,7 +9,6 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
 import android.os.HandlerThread
-import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 import androidx.activity.compose.setContent
@@ -28,6 +27,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -57,10 +57,6 @@ import org.jugendhackt.wegweiser.ui.theme.WegweiserTheme
 import org.koin.androidx.compose.KoinAndroidContext
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.compose.koinInject
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.material3.Scaffold
 
 class MainActivity : AppCompatActivity() {
     private val TAG = "MainActivity"
@@ -86,7 +82,6 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "onCreate")
 
         locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
-
         enableEdgeToEdge()
         checkLocationAvailability()
 
@@ -152,13 +147,11 @@ class MainActivity : AppCompatActivity() {
                 locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER) ->
                     LocationManager.NETWORK_PROVIDER
                 else -> {
-                    Log.e(TAG, "No available location providers")
                     showProviderErrorDialog()
                     return
                 }
             }
 
-            Log.d(TAG, "Starting location updates with: $provider")
             locationManager.requestLocationUpdates(
                 provider,
                 1000L,
@@ -172,16 +165,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startLocationUpdatesIfPossible() {
-        if (checkPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-            && ::locationManager.isInitialized
-            && (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
-                    || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER))
-        ) {
-            Log.d(TAG, "Starting location updates")
-            startLocationUpdates(true)
+        val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+        val isNetworkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+
+        if (checkPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
+            when {
+                isGpsEnabled -> startLocationUpdates(true)
+                isNetworkEnabled -> startLocationUpdates(false)
+                else -> showProviderErrorDialog()
+            }
         } else {
-            Log.e(TAG, "Can't start location updates")
-            checkProviderAvailability()
+            requestPermissions()
         }
     }
 
@@ -199,9 +193,7 @@ class MainActivity : AppCompatActivity() {
             .setTitle("Standortdienst benötigt")
             .setMessage("Bitte aktivieren Sie GPS oder Netzwerk-basierte Standortdienste.")
             .setPositiveButton("Einstellungen öffnen") { _, _ ->
-                // Intent korrekt erstellen
-                val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
-                startActivity(intent)
+                startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
             }
             .setNegativeButton("Abbrechen", null)
             .show()
@@ -210,7 +202,7 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         Log.d(TAG, "onPause")
-        locationManager.removeUpdates(locationListener) // Typo korrigiert
+        locationManager.removeUpdates(locationListener)
     }
 
     override fun onResume() {
