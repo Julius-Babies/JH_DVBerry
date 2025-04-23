@@ -1,6 +1,7 @@
 package org.jugendhackt.wegweiser
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
@@ -75,7 +76,9 @@ class MainActivity : AppCompatActivity() {
 
         enableEdgeToEdge()
         if (checkPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
-            startLocationUpdates(true)
+            if (::locationManager.isInitialized) { // Sicherheitscheck
+                startLocationUpdates(true)
+            }
         } else {
             requestPermissions()
         }
@@ -187,6 +190,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    @SuppressLint("MissingPermission")
     @RequiresPermission(Manifest.permission.ACCESS_FINE_LOCATION)
     private fun startLocationUpdates(highAccuracy: Boolean) {
         try {
@@ -198,8 +202,8 @@ class MainActivity : AppCompatActivity() {
 
             locationManager.requestLocationUpdates(
                 provider,
-                1000L,
-                1f,
+                1000L,  // 1 Sekunde
+                1f,     // 1 Meter
                 locationListener,
                 Looper.getMainLooper()
             )
@@ -216,7 +220,9 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (checkPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
-            startLocationUpdates(true)
+            if (::locationManager.isInitialized) { // Sicherheitscheck
+                startLocationUpdates(true)
+            }
         } else {
             requestPermissions()
         }
@@ -241,19 +247,35 @@ class MainActivity : AppCompatActivity() {
             ActivityResultContracts.RequestPermission()
         ) { isGranted ->
             when {
-                isGranted -> startLocationUpdates(true)
+                isGranted -> {
+                    // Double-check permission and handle potential exceptions
+                    if (checkPermission(this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION)) {
+                        try {
+                            @SuppressLint("MissingPermission")
+                            fun startWithCheckedPermission() {
+                                if (::locationManager.isInitialized) {
+                                    startLocationUpdates(true)
+                                }
+                            }
+                            startWithCheckedPermission()
+                        } catch (e: SecurityException) {
+                            Log.e("Location", "Permission revoked during callback", e)
+                            viewModel.onEvent(MainEvent.PermissionDenied)
+                        }
+                    }
+                }
+
                 ActivityCompat.shouldShowRequestPermissionRationale(
                     this,
                     Manifest.permission.ACCESS_FINE_LOCATION
                 ) -> showRationaleDialog()
+
                 else -> viewModel.onEvent(MainEvent.PermissionPermanentlyDenied)
             }
         }
 
         locationPermissionRequest.launch(Manifest.permission.ACCESS_FINE_LOCATION)
     }
-}
-
 @Composable
 fun ColumnScope.PlayPauseButton(
     isPlaying: Boolean,
@@ -300,4 +322,4 @@ fun ColumnScope.PlayPauseButton(
             }
         }
     }
-}
+}}
