@@ -95,9 +95,9 @@ class MainViewModel(
 
 sealed class MainEvent {
     data class LocationUpdate(val latitude: Double, val longitude: Double) : MainEvent()
-    data object TogglePlayPause : MainEvent()  // Geändert zu data object
-    data object PermissionDenied : MainEvent() // Geändert zu data object
-    data object PermissionPermanentlyDenied : MainEvent() // Geändert zu data object
+    data object TogglePlayPause : MainEvent()
+    data object PermissionDenied : MainEvent()
+    data object PermissionPermanentlyDenied : MainEvent()
 }
 
 data class Station(
