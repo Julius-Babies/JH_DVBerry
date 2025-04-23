@@ -36,7 +36,7 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-${{ hashFiles('**/*.gradle*') }}-${{ hashFiles('**/gradle/libs.versions.toml') }}-${{ hashFiles('**/gradle/wrapper/gradle-wrapper.properties') }}-${{ hashFiles('**/app/build.gradle.kts') }}
+          key: ${{ runner.os }}-${{ hashFiles('${GITHUB_WORKSPACE}/gradle/libs.versions.toml') }}-${{ hashFiles('${GITHUB_WORKSPACE}/gradle/wrapper/gradle-wrapper.properties') }}-${{ hashFiles('${GITHUB_WORKSPACE}/app/build.gradle.kts') }}
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
