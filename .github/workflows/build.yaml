@@ -1,0 +1,89 @@
+# Workflow name
+name: App release
+
+# When it will be triggered
+on:
+  push:
+    branches:
+      - main
+
+# Where it will run
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout the code
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      # Setup Java
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: 17
+
+      # Setup Android SDK
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+
+      - name: Setup Gradle Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-${{ hashFiles('**/*.gradle*') }}-${{ hashFiles('**/gradle/wrapper/gradle-wrapper.properties') }}-${{ hashFiles('**/buildSrc/**/*.kt') }}
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Restore playstore.keystore.jks
+        run: echo ${{secrets.KEYSTORE_FILE}} | base64 -d > ${GITHUB_WORKSPACE}/keystore.jks
+
+      - name: Add keystore information to local.properties
+        run: echo "signing.default.file=${GITHUB_WORKSPACE}/keystore.jks" >> local.properties
+
+      - name: Add keystore password to local.properties
+        run: echo "signing.default.storepassword=${{secrets.KEYSTORE_PASSWORD}}" >> local.properties
+
+      - name: Add keystore alias to local.properties
+        run: echo "signing.default.keyalias=key0" >> local.properties
+
+      - name: Add keystore key password to local.properties
+        run: echo "signing.default.keypassword=${{secrets.KEYSTORE_PASSWORD}}" >> local.properties
+
+      # Build the app
+      - name: Build the app
+        run: ./gradlew assembleRelease
+
+      # Export APK
+      - name: Export APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DVBerry
+          path: app/build/outputs/apk/release/app-release.apk
+          compression-level: 0
+          if-no-files-found: error
+
+      # Create release
+      - name: Create release
+        uses: actions/create-release@v1
+        id: create_release
+        with:
+          draft: false
+          prerelease: false
+          release_name: DVBerry ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          body: DVBerry ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Upload release
+      - name: Upload release
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: app/build/outputs/apk/release/app-release.apk
+          asset_name: DVBerry.apk
+          asset_content_type: application/vnd.android.package-archive

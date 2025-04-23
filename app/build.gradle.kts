@@ -1,3 +1,6 @@
+import java.util.Properties
+import kotlin.toString
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,9 +8,27 @@ plugins {
     kotlin("plugin.serialization") version "2.1.20"
 }
 
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) {
+        file.inputStream().use { load(it) }
+    }
+}
+
 android {
     namespace = "org.jugendhackt.wegweiser"
     compileSdk = 35
+
+    if (listOf("signing.default.file", "signing.default.storepassword", "signing.default.keyalias", "signing.default.keypassword").all { localProperties.containsKey(it) }) {
+        signingConfigs {
+            create("default") {
+                storeFile = file(localProperties["signing.default.file"]!!)
+                storePassword = localProperties["signing.default.storepassword"].toString()
+                keyAlias = localProperties["signing.default.keyalias"].toString()
+                keyPassword = localProperties["signing.default.keypassword"].toString()
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "org.jugendhackt.wegweiser"
@@ -26,7 +47,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("default")
         }
     }
     compileOptions {
