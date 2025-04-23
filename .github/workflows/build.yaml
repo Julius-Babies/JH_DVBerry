@@ -81,9 +81,10 @@ jobs:
 
       # Upload release
       - name: Upload release
-        uses: actions/upload-release-asset@v1
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: app/build/outputs/apk/release/app-release.apk
-          asset_name: DVBerry.apk
-          asset_content_type: application/vnd.android.package-archive
+          files: app/build/outputs/apk/release/app-release.apk
+          tag_name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GH_PAT }}
