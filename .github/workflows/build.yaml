@@ -36,7 +36,7 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-${{ hashFiles('**/*.gradle*') }}-${{ hashFiles('**/gradle/wrapper/gradle-wrapper.properties') }}-${{ hashFiles('**/buildSrc/**/*.kt') }}
+          key: ${{ runner.os }}-${{ hashFiles('**/*.gradle*') }}-${{ hashFiles('**/gradle/libs.versions.toml') }}-${{ hashFiles('**/gradle/wrapper/gradle-wrapper.properties') }}-${{ hashFiles('**/app/build.gradle.kts') }}
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
@@ -69,11 +69,16 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
+      - name: Set date
+        run: echo "DATE=$(date '+%d.%m.%Y %H:%M')" >> $GITHUB_ENV
       # Create release
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           files: app/build/outputs/apk/release/app-release.apk
-          draft: true
+          draft: false
           prerelease: false
           make_latest: true
+          name: DVBerry (${{ env.DATE }})
+          fail_on_unmatched_files: true
+          tag_name: v${{ env.DATE }}
