@@ -42,10 +42,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationResult
-import com.google.android.gms.location.LocationServices
+import android.location.LocationManager
+import android.location.Location
+import android.location.LocationListener
 import org.jugendhackt.wegweiser.app.checkPermission
 import org.jugendhackt.wegweiser.language.language
 import org.jugendhackt.wegweiser.sensors.shake.ShakeSensor
@@ -58,11 +57,13 @@ class MainActivity : AppCompatActivity() {
     val viewModel: MainViewModel by viewModel()
     var hasLocationPermissionRequested = false
 
-    private val fusedLocationClient: FusedLocationProviderClient by lazy {
-        LocationServices.getFusedLocationProviderClient(applicationContext)
-    }
+    private lateinit var locationManager: LocationManager
+    private var locationListener: LocationListener? = null
+
+    // In onCreate()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
         super.onCreate(savedInstanceState)
 
         enableEdgeToEdge()
@@ -181,19 +182,27 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
+    @RequiresPermission(Manifest.permission.ACCESS_FINE_LOCATION) // Oder ACCESS_COARSE_LOCATION je nach Provider
     private fun startLocationUpdates() {
-        val locationRequest = LocationRequest.Builder(1000).build()
+            try {
+                // Letzte bekannte Position
+                val lastLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                lastLocation?.let {
+                    viewModel.onEvent(MainEvent.LocationUpdate(it.latitude, it.longitude))
+                }
 
-        fusedLocationClient.lastLocation.addOnSuccessListener {
-            it?.let { viewModel.onEvent(MainEvent.LocationUpdate(it.latitude, it.longitude)) }
+                // Live-Updates
+                locationManager.requestLocationUpdates(
+                    LocationManager.GPS_PROVIDER, // oder NETWORK_PROVIDER
+                    1000L,    // Intervall in Millisekunden
+                    1f,       // Mindeständerung in Metern
+                    locationListener!!,
+                    Looper.getMainLooper()
+                )
+            } catch (e: SecurityException) {
+                Log.e("Location", "Permission fehlt", e)
+            }
         }
-
-        fusedLocationClient.requestLocationUpdates(
-            locationRequest,
-            locationCallback,
-            Looper.getMainLooper()
-        )
     }
 
     override fun onResume() {
@@ -204,14 +213,18 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        fusedLocationClient.removeLocationUpdates(locationCallback)
+        locationListener?.let {
+            locationManager.removeUpdates(it)
+        }
     }
 
-    private val locationCallback = object : LocationCallback() {
-        override fun onLocationResult(locationResult: LocationResult) {
-            locationResult.lastLocation?.let { location ->
-                viewModel.onEvent(MainEvent.LocationUpdate(location.latitude, location.longitude))
-            }
+    private val locationListener = object : LocationListener {
+        override fun onLocationChanged(location: Location) {
+            viewModel.onEvent(MainEvent.LocationUpdate(location.latitude, location.longitude))
+        }
+
+        override fun onProviderDisabled(provider: String) {
+            Log.w("Location", "Provider disabled: $provider")
         }
     }
 
