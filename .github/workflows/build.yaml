@@ -71,6 +71,8 @@ jobs:
 
       - name: Set date
         run: echo "DATE=$(date '+%d.%m.%Y %H:%M')" >> $GITHUB_ENV
+      - name: Set date for tag name
+        run: echo "TAG_DATE=$(date '+%Y%m%d_%H-%M')" >> $GITHUB_ENV
       # Create release
       - name: Create release
         uses: softprops/action-gh-release@v2
@@ -81,4 +83,4 @@ jobs:
           make_latest: true
           name: DVBerry (${{ env.DATE }})
           fail_on_unmatched_files: true
-          tag_name: v${{ env.DATE }}
+          tag_name: v${{ env.TAG_DATE }}
