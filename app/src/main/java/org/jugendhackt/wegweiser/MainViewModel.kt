@@ -44,7 +44,10 @@ class MainViewModel(
                     latitude = event.latitude
                     longitude = event.longitude
                     val nearestStation = stops.minByOrNull {
-                        sqrt((longitude - it.longitude) * (longitude - it.longitude) + (latitude - it.latitude) * (latitude - it.latitude))
+                        sqrt(
+                            (longitude - it.longitude) * (longitude - it.longitude) +
+                                    (latitude - it.latitude) * (latitude - it.latitude)
+                        )
                     }
                     if (nearestStation?.id != nearestStops?.id) {
                         nearestStops = nearestStation?.copy(
@@ -58,7 +61,8 @@ class MainViewModel(
                         Log.d("MainViewModel", "No changes to nearest stops")
                     }
                 }
-                is MainEvent.TogglePlayPause -> {
+
+                MainEvent.TogglePlayPause -> {
                     isPlaying = !isPlaying
                     if (isPlaying) {
                         nearestStops?.let {
@@ -69,6 +73,21 @@ class MainViewModel(
                         tts.stop()
                     }
                 }
+
+                MainEvent.PermissionDenied -> {
+                    // Neue Logik für temporäre Berechtigungsverweigerung
+                    Log.w("MainViewModel", "Standortberechtigung wurde verweigert")
+                    canPlay = false
+                    isPlaying = false
+                }
+
+                MainEvent.PermissionPermanentlyDenied -> {
+                    // Neue Logik für dauerhafte Verweigerung
+                    Log.e("MainViewModel", "Standortberechtigung dauerhaft verweigert")
+                    canPlay = false
+                    isPlaying = false
+                    // Optional: Navigation zu Einstellungen anbieten
+                }
             }
         }
     }
@@ -77,6 +96,8 @@ class MainViewModel(
 sealed class MainEvent {
     data class LocationUpdate(val latitude: Double, val longitude: Double) : MainEvent()
     data object TogglePlayPause : MainEvent()
+    data object PermissionDenied : MainEvent()
+    data object PermissionPermanentlyDenied : MainEvent()
 }
 
 data class Station(

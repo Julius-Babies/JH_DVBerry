@@ -1,7 +1,11 @@
 package org.jugendhackt.wegweiser
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
 import android.os.Bundle
 import android.os.Looper
 import android.util.Log
@@ -9,6 +13,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresPermission
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.basicMarquee
@@ -41,11 +46,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationCallback
-import com.google.android.gms.location.LocationRequest
-import com.google.android.gms.location.LocationResult
-import com.google.android.gms.location.LocationServices
 import org.jugendhackt.wegweiser.app.checkPermission
 import org.jugendhackt.wegweiser.language.language
 import org.jugendhackt.wegweiser.sensors.shake.ShakeSensor
@@ -53,25 +53,35 @@ import org.jugendhackt.wegweiser.ui.theme.WegweiserTheme
 import org.koin.androidx.compose.KoinAndroidContext
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.compose.koinInject
+import org.jugendhackt.wegweiser.MainEvent
 
 class MainActivity : AppCompatActivity() {
     val viewModel: MainViewModel by viewModel()
     var hasLocationPermissionRequested = false
 
-    private val fusedLocationClient: FusedLocationProviderClient by lazy {
-        LocationServices.getFusedLocationProviderClient(applicationContext)
+    private lateinit var locationManager: LocationManager
+    private val locationListener = object : LocationListener {
+        override fun onLocationChanged(location: Location) {
+            viewModel.onEvent(MainEvent.LocationUpdate(location.latitude, location.longitude))
+        }
+
+        override fun onProviderDisabled(provider: String) {
+            Log.w("Location", "Provider deaktiviert: $provider")
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
 
         enableEdgeToEdge()
-        if (checkPermission(
-                this@MainActivity,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            )
-        ) startLocationUpdates()
-        else requestPermissions()
+        if (checkPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
+            if (::locationManager.isInitialized) { // Sicherheitscheck
+                startLocationUpdates(true)
+            }
+        } else {
+            requestPermissions()
+        }
 
         setContent {
             KoinAndroidContext {
@@ -147,16 +157,15 @@ class MainActivity : AppCompatActivity() {
                                                         append(departure.destination)
                                                         append(" (")
                                                         append(departure.time)
-                                                        append(") ${language.getString("ui.at")} ${when(departure.platformType) {
+                                                        append(") ${language.getString("ui.at")} ${when (departure.platformType) {
                                                             "Platform", "Tram" -> language.getString("ui.platform")
                                                             "Railtrack" -> language.getString("ui.railtrack")
-                                                            else -> departure.platformType }
+                                                            else -> departure.platformType
+                                                        }
                                                         } ${departure.platformName}")
-                                                        if (departure.isCancelled) append(" ${language.getString("ui.isCancelled")}")
-                                                        else if (departure.delayInMinutes > 0) append(
+                                                        if (departure.isCancelled) append(" ${language.getString("ui.isCancelled")}") else if (departure.delayInMinutes > 0) append(
                                                             " +${departure.delayInMinutes}${language.getString("ui.abbreviation_minutes")}"
-                                                        )
-                                                        else if (departure.delayInMinutes < 0) append(
+                                                        ) else if (departure.delayInMinutes < 0) append(
                                                             " ${departure.delayInMinutes}${language.getString("ui.abbreviation_minutes")}"
                                                         )
                                                     }
@@ -181,97 +190,92 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
-    private fun startLocationUpdates() {
-        val locationRequest = LocationRequest.Builder(1000).build()
+    @SuppressLint("MissingPermission")
+    @RequiresPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+    private fun startLocationUpdates(highAccuracy: Boolean) {
+        try {
+            val provider = if (highAccuracy) {
+                LocationManager.GPS_PROVIDER
+            } else {
+                LocationManager.NETWORK_PROVIDER
+            }
 
-        fusedLocationClient.lastLocation.addOnSuccessListener {
-            it?.let { viewModel.onEvent(MainEvent.LocationUpdate(it.latitude, it.longitude)) }
+            locationManager.requestLocationUpdates(
+                provider,
+                1000L,  // 1 Sekunde
+                1f,     // 1 Meter
+                locationListener,
+                Looper.getMainLooper()
+            )
+        } catch (e: SecurityException) {
+            Log.e("Location", "Berechtigungsfehler", e)
         }
-
-        fusedLocationClient.requestLocationUpdates(
-            locationRequest,
-            locationCallback,
-            Looper.getMainLooper()
-        )
-    }
-
-    override fun onResume() {
-        super.onResume()
-        if (checkPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)) startLocationUpdates()
-        else requestPermissions()
     }
 
     override fun onPause() {
         super.onPause()
-        fusedLocationClient.removeLocationUpdates(locationCallback)
+        locationManager.removeUpdates(locationListener)
     }
 
-    private val locationCallback = object : LocationCallback() {
-        override fun onLocationResult(locationResult: LocationResult) {
-            locationResult.lastLocation?.let { location ->
-                viewModel.onEvent(MainEvent.LocationUpdate(location.latitude, location.longitude))
+    override fun onResume() {
+        super.onResume()
+        if (checkPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
+            if (::locationManager.isInitialized) { // Sicherheitscheck
+                startLocationUpdates(true)
             }
+        } else {
+            requestPermissions()
         }
+    }
+
+    private fun showRationaleDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Standortzugriff benötigt")
+            .setMessage("Diese App benötigt den Standortzugriff, um die nächsten Abfahrten anzuzeigen.")
+            .setPositiveButton("Erneut versuchen") { _, _ ->
+                requestPermissions()
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
     }
 
     fun requestPermissions() {
         if (hasLocationPermissionRequested) return
         hasLocationPermissionRequested = true
+
         val locationPermissionRequest = registerForActivityResult(
-            ActivityResultContracts.RequestMultiplePermissions()
-        ) { permissions ->
+            ActivityResultContracts.RequestPermission()
+        ) { isGranted ->
             when {
-                permissions.getOrDefault(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    false
-                ) -> {
-                    if (ActivityCompat.checkSelfPermission(
-                            this,
-                            Manifest.permission.ACCESS_FINE_LOCATION
-                        ) != PackageManager.PERMISSION_GRANTED || ActivityCompat.checkSelfPermission(
-                            this,
-                            Manifest.permission.ACCESS_COARSE_LOCATION
-                        ) != PackageManager.PERMISSION_GRANTED
-                    ) {
-                        // TODO: Consider calling
-                        //    ActivityCompat#requestPermissions
-                        // here to request the missing permissions, and then overriding
-                        //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                        //                                          int[] grantResults)
-                        // to handle the case where the user grants the permission. See the documentation
-                        // for ActivityCompat#requestPermissions for more details.
-                        return@registerForActivityResult
+                isGranted -> {
+                    // Double-check permission and handle potential exceptions
+                    if (checkPermission(this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION)) {
+                        try {
+                            @SuppressLint("MissingPermission")
+                            fun startWithCheckedPermission() {
+                                if (::locationManager.isInitialized) {
+                                    startLocationUpdates(true)
+                                }
+                            }
+                            startWithCheckedPermission()
+                        } catch (e: SecurityException) {
+                            Log.e("Location", "Permission revoked during callback", e)
+                            viewModel.onEvent(MainEvent.PermissionDenied)
+                        }
                     }
-                    startLocationUpdates()
                 }
 
-                permissions.getOrDefault(
-                    Manifest.permission.ACCESS_COARSE_LOCATION,
-                    false
-                ) -> {
-                    // Only approximate location access granted.
-                }
+                ActivityCompat.shouldShowRequestPermissionRationale(
+                    this,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) -> showRationaleDialog()
 
-                else -> {
-                    // No location access granted.
-                }
+                else -> viewModel.onEvent(MainEvent.PermissionPermanentlyDenied)
             }
         }
 
-        // Before you perform the actual permission request, check whether your app
-        // already has the permissions, and whether your app needs to show a permission
-        // rationale dialog. For more details, see Request permissions:
-        // https://developer.android.com/training/permissions/requesting#request-permission
-        locationPermissionRequest.launch(
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            )
-        )
+        locationPermissionRequest.launch(Manifest.permission.ACCESS_FINE_LOCATION)
     }
-}
-
 @Composable
 fun ColumnScope.PlayPauseButton(
     isPlaying: Boolean,
@@ -318,4 +322,4 @@ fun ColumnScope.PlayPauseButton(
             }
         }
     }
-}
+}}
