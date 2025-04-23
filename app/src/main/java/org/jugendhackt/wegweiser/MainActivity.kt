@@ -43,6 +43,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
@@ -53,51 +54,58 @@ import org.jugendhackt.wegweiser.ui.theme.WegweiserTheme
 import org.koin.androidx.compose.KoinAndroidContext
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.compose.koinInject
-import org.jugendhackt.wegweiser.MainEvent
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.Scaffold
 
 class MainActivity : AppCompatActivity() {
+    private val TAG = "MainActivity"
     val viewModel: MainViewModel by viewModel()
     var hasLocationPermissionRequested = false
-
     private lateinit var locationManager: LocationManager
+
     private val locationListener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
+            Log.d(TAG, "New location received")
             viewModel.onEvent(MainEvent.LocationUpdate(location.latitude, location.longitude))
         }
 
         override fun onProviderDisabled(provider: String) {
-            Log.w("Location", "Provider deaktiviert: $provider")
+            Log.w(TAG, "Location provider disabled: $provider")
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d(TAG, "onCreate")
+
         locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
 
         enableEdgeToEdge()
         if (checkPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
-            if (::locationManager.isInitialized) { // Sicherheitscheck
-                startLocationUpdates(true)
-            }
+            Log.d(TAG, "Permission already granted")
+            startLocationUpdatesIfPossible()
         } else {
+            Log.d(TAG, "Requesting permission")
             requestPermissions()
         }
 
         setContent {
             KoinAndroidContext {
                 val shakeSensor = koinInject<ShakeSensor>()
-                LaunchedEffect(42) {
+                val context = LocalContext.current
+                val language = language(context)
+
+                LaunchedEffect(Unit) {
+                    Log.d(TAG, "Shake sensor initialized")
                     var timeThreshold = 0L
                     shakeSensor.add {
-                        if (System.nanoTime() - timeThreshold < 1500000000L) return@add
-                        if (viewModel.nearestStops == null) return@add
+                        if (System.nanoTime() - timeThreshold < 1_500_000_000) return@add
                         timeThreshold = System.nanoTime()
                         viewModel.onEvent(MainEvent.TogglePlayPause)
-                        Log.d("ACC", "ButtonToggle by Shaking")
                     }
                 }
-
-                val language = language(this)
 
                 WegweiserTheme {
                     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -106,82 +114,12 @@ class MainActivity : AppCompatActivity() {
                                 .fillMaxSize()
                                 .padding(innerPadding)
                         ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f)
-                            ) {
-                                AnimatedContent(
-                                    targetState = viewModel.nearestStops == null
-                                ) { isLoading ->
-                                    if (isLoading) {
-                                        Box(
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier
-                                                    .padding(24.dp)
-                                                    .fillMaxSize(),
-                                                strokeWidth = 16.dp
-                                            )
-                                        }
-                                        return@AnimatedContent
-                                    }
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .verticalScroll(rememberScrollState())
-                                            .padding(16.dp)
-                                    ) {
-                                        viewModel.nearestStops?.let {
-                                            Text(
-                                                text = it.name,
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .basicMarquee(iterations = Int.MAX_VALUE),
-                                                textAlign = TextAlign.Center,
-                                                style = MaterialTheme.typography.displayLarge
-                                            )
-                                            Spacer(Modifier.height(16.dp))
-                                            Text(
-                                                text = "${language.getString("ui.next_departures")}: ",
-                                                style = MaterialTheme.typography.titleLarge
-                                            )
-                                            Text(
-                                                text = buildString {
-                                                    it.departures.forEachIndexed { i, departure ->
-                                                        if (i > 0) append("\n")
-                                                        append(departure.line)
-                                                        append(": ")
-                                                        append(departure.destination)
-                                                        append(" (")
-                                                        append(departure.time)
-                                                        append(") ${language.getString("ui.at")} ${when (departure.platformType) {
-                                                            "Platform", "Tram" -> language.getString("ui.platform")
-                                                            "Railtrack" -> language.getString("ui.railtrack")
-                                                            else -> departure.platformType
-                                                        }
-                                                        } ${departure.platformName}")
-                                                        if (departure.isCancelled) append(" ${language.getString("ui.isCancelled")}") else if (departure.delayInMinutes > 0) append(
-                                                            " +${departure.delayInMinutes}${language.getString("ui.abbreviation_minutes")}"
-                                                        ) else if (departure.delayInMinutes < 0) append(
-                                                            " ${departure.delayInMinutes}${language.getString("ui.abbreviation_minutes")}"
-                                                        )
-                                                    }
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
+                            MainContent(viewModel, language)
                             PlayPauseButton(
                                 viewModel.isPlaying,
                                 viewModel.canPlay,
-                                language = language
+                                language
                             ) { viewModel.onEvent(MainEvent.TogglePlayPause) }
-
                             Spacer(modifier = Modifier.height(24.dp))
                         }
                     }
@@ -194,132 +132,186 @@ class MainActivity : AppCompatActivity() {
     @RequiresPermission(Manifest.permission.ACCESS_FINE_LOCATION)
     private fun startLocationUpdates(highAccuracy: Boolean) {
         try {
-            val provider = if (highAccuracy) {
-                LocationManager.GPS_PROVIDER
-            } else {
-                LocationManager.NETWORK_PROVIDER
-            }
+            val provider = if (highAccuracy) LocationManager.GPS_PROVIDER
+            else LocationManager.NETWORK_PROVIDER
 
+            Log.d(TAG, "Starting location updates with: $provider")
             locationManager.requestLocationUpdates(
                 provider,
-                1000L,  // 1 Sekunde
-                1f,     // 1 Meter
+                1000L,
+                1f,
                 locationListener,
                 Looper.getMainLooper()
             )
         } catch (e: SecurityException) {
-            Log.e("Location", "Berechtigungsfehler", e)
+            Log.e(TAG, "Location permission error", e)
+        }
+    }
+
+    private fun startLocationUpdatesIfPossible() {
+        if (checkPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+            && ::locationManager.isInitialized
+        ) {
+            Log.d(TAG, "Starting location updates")
+            startLocationUpdates(true)
         }
     }
 
     override fun onPause() {
         super.onPause()
+        Log.d(TAG, "onPause")
         locationManager.removeUpdates(locationListener)
     }
 
     override fun onResume() {
         super.onResume()
+        Log.d(TAG, "onResume")
         if (checkPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
-            if (::locationManager.isInitialized) { // Sicherheitscheck
-                startLocationUpdates(true)
-            }
+            startLocationUpdatesIfPossible()
         } else {
             requestPermissions()
         }
     }
 
+    private fun requestPermissions() {
+        if (hasLocationPermissionRequested) return
+        hasLocationPermissionRequested = true
+        Log.d(TAG, "Requesting location permission")
+
+        locationPermissionRequest.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+    }
+
+    private val locationPermissionRequest = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        Log.d(TAG, "Permission result: $isGranted")
+        when {
+            isGranted -> startLocationUpdatesIfPossible()
+            ActivityCompat.shouldShowRequestPermissionRationale(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) -> showRationaleDialog()
+            else -> viewModel.onEvent(MainEvent.PermissionPermanentlyDenied)
+        }
+    }
+
     private fun showRationaleDialog() {
         AlertDialog.Builder(this)
-            .setTitle("Standortzugriff benötigt")
-            .setMessage("Diese App benötigt den Standortzugriff, um die nächsten Abfahrten anzuzeigen.")
-            .setPositiveButton("Erneut versuchen") { _, _ ->
-                requestPermissions()
-            }
+            .setTitle("Standort benötigt")
+            .setMessage("Wir benötigen den Standortzugriff um die nächsten Abfahrten anzuzeigen.")
+            .setPositiveButton("Erneut versuchen") { _, _ -> requestPermissions() }
             .setNegativeButton("Abbrechen", null)
             .show()
     }
 
-    fun requestPermissions() {
-        if (hasLocationPermissionRequested) return
-        hasLocationPermissionRequested = true
+    @Composable
+    private fun MainContent(viewModel: MainViewModel, language: language) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 100.dp)
+        ) {
+            AnimatedContent(
+                targetState = viewModel.nearestStops == null
+            ) { isLoading ->
+                if (isLoading) {
+                    LoadingIndicator()
+                } else {
+                    viewModel.nearestStops?.let {
+                        StationInfo(it, language)
+                    } ?: Text("Keine Station gefunden")
+                }
+            }
+        }
+    }
 
-        val locationPermissionRequest = registerForActivityResult(
-            ActivityResultContracts.RequestPermission()
-        ) { isGranted ->
-            when {
-                isGranted -> {
-                    // Double-check permission and handle potential exceptions
-                    if (checkPermission(this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION)) {
-                        try {
-                            @SuppressLint("MissingPermission")
-                            fun startWithCheckedPermission() {
-                                if (::locationManager.isInitialized) {
-                                    startLocationUpdates(true)
-                                }
-                            }
-                            startWithCheckedPermission()
-                        } catch (e: SecurityException) {
-                            Log.e("Location", "Permission revoked during callback", e)
-                            viewModel.onEvent(MainEvent.PermissionDenied)
-                        }
+    @Composable
+    private fun LoadingIndicator() {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.padding(24.dp),
+                strokeWidth = 16.dp
+            )
+        }
+    }
+
+    @Composable
+    private fun StationInfo(station: Station, language: language) {
+        Column(
+            modifier = Modifier
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp)
+        ) {
+            Text(
+                text = station.name,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .basicMarquee(),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.displayLarge
+            )
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = "${language.getString("ui.next_departures")}:",
+                style = MaterialTheme.typography.titleLarge
+            )
+            Text(
+                text = station.departures.joinToString("\n") { departure ->
+                    "${departure.line}: ${departure.destination} (${departure.time})"
+                }
+            )
+        }
+    }
+
+    @Composable
+    fun ColumnScope.PlayPauseButton(
+        isPlaying: Boolean,
+        canPlay: Boolean,
+        language: language,
+        onClick: () -> Unit
+    ) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(8.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .clickable(onClick = onClick, enabled = canPlay),
+            contentAlignment = Alignment.Center
+        ) {
+            AnimatedContent(
+                targetState = isPlaying,
+                label = "PlayPauseAnimation"
+            ) { targetState ->
+                when {
+                    targetState && canPlay -> {
+                        Icon(
+                            imageVector = Icons.Outlined.Stop,
+                            contentDescription = language.getString("contentDescription.stop"),
+                            modifier = Modifier.padding(24.dp)
+                        )
+                    }
+
+                    !targetState && canPlay -> {
+                        Icon(
+                            imageVector = Icons.Outlined.PlayArrow,
+                            contentDescription = language.getString("contentDescription.play"),
+                            modifier = Modifier.padding(24.dp)
+                        )
+                    }
+
+                    else -> {
+                        Icon(
+                            imageVector = Icons.Outlined.Block,
+                            contentDescription = language.getString("contentDescription.loading"),
+                            modifier = Modifier.padding(24.dp)
+                        )
                     }
                 }
-
-                ActivityCompat.shouldShowRequestPermissionRationale(
-                    this,
-                    Manifest.permission.ACCESS_FINE_LOCATION
-                ) -> showRationaleDialog()
-
-                else -> viewModel.onEvent(MainEvent.PermissionPermanentlyDenied)
-            }
-        }
-
-        locationPermissionRequest.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-    }
-@Composable
-fun ColumnScope.PlayPauseButton(
-    isPlaying: Boolean,
-    canPlay: Boolean,
-    language: language,
-    onClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .weight(1f)
-            .fillMaxWidth()
-            .padding(8.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick, enabled = canPlay),
-        contentAlignment = Alignment.Center
-    ) {
-        AnimatedContent(
-            targetState = isPlaying,
-        ) { isPlaying ->
-            if (isPlaying && canPlay) {
-                Icon(
-                    imageVector = Icons.Outlined.Stop,
-                    contentDescription = language.getString("contentDescription.stop"),
-                    modifier = Modifier
-                        .padding(24.dp)
-                        .fillMaxSize()
-                )
-            } else if ((!isPlaying) && canPlay) {
-                Icon(
-                    imageVector = Icons.Outlined.PlayArrow,
-                    contentDescription = language.getString("contentDescription.play"),
-                    modifier = Modifier
-                        .padding(24.dp)
-                        .fillMaxSize()
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Outlined.Block,
-                    contentDescription = language.getString("contentDescription.loading"),
-                    modifier = Modifier
-                        .padding(24.dp)
-                        .fillMaxSize()
-                )
             }
         }
     }
-}}
+}

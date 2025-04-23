@@ -7,97 +7,108 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.jugendhackt.wegweiser.dvb.DVBSource
 import org.jugendhackt.wegweiser.language.language
 import org.jugendhackt.wegweiser.tts.TTS
 import java.time.LocalTime
 import kotlin.math.abs
+import kotlin.math.pow
 import kotlin.math.sqrt
-import kotlin.time.Duration.Companion.minutes
 
 class MainViewModel(
     private val dvbSource: DVBSource,
     private val tts: TTS,
     private val language: language
 ) : ViewModel() {
-    var latitude: Double by mutableDoubleStateOf(0.0)
-        private set
+    private val TAG = "MainViewModel"
 
-    var longitude: Double by mutableDoubleStateOf(0.0)
-        private set
-
+    var latitude by mutableDoubleStateOf(0.0)
+    var longitude by mutableDoubleStateOf(0.0)
     var isPlaying by mutableStateOf(false)
-        private set
-
     var canPlay by mutableStateOf(false)
-        private set
-
-    private val stops: List<Station> = dvbSource.getStations()
     var nearestStops by mutableStateOf<Station?>(null)
-        private set
+
+    private val stops: List<Station> by lazy { dvbSource.getStations() }
 
     fun onEvent(event: MainEvent) {
+        Log.d(TAG, "Received event: ${event.javaClass.simpleName}")
         viewModelScope.launch {
             when (event) {
-                is MainEvent.LocationUpdate -> {
-                    latitude = event.latitude
-                    longitude = event.longitude
-                    val nearestStation = stops.minByOrNull {
-                        sqrt(
-                            (longitude - it.longitude) * (longitude - it.longitude) +
-                                    (latitude - it.latitude) * (latitude - it.latitude)
-                        )
-                    }
-                    if (nearestStation?.id != nearestStops?.id) {
-                        nearestStops = nearestStation?.copy(
-                            departures = dvbSource.departureMonitor(nearestStation.id, 5)
-                                ?.departures
-                                ?.distinctBy { it.line + it.destination + it.platformName + it.platformType }
-                                .orEmpty()
-                        )
-                        canPlay = nearestStops != null
-                    } else {
-                        Log.d("MainViewModel", "No changes to nearest stops")
-                    }
+                is MainEvent.LocationUpdate -> handleLocationUpdate(event)
+                MainEvent.TogglePlayPause -> togglePlayState()
+                MainEvent.PermissionDenied -> handlePermissionDenied()
+                MainEvent.PermissionPermanentlyDenied -> handlePermanentDenial()
+            }
+        }
+    }
+
+    private suspend fun handleLocationUpdate(event: MainEvent.LocationUpdate) {
+        withContext(Dispatchers.Default) {
+            Log.d(TAG, "Updating location: ${event.latitude}, ${event.longitude}")
+            latitude = event.latitude
+            longitude = event.longitude
+
+            val nearest = stops.minByOrNull { station ->
+                sqrt(
+                    (longitude - station.longitude).pow(2) +
+                            (latitude - station.latitude).pow(2)
+                )
+            }
+
+            nearest?.let { station ->
+                val departures = withContext(Dispatchers.IO) {
+                    dvbSource.departureMonitor(station.id, 5)?.departures.orEmpty()
                 }
 
-                MainEvent.TogglePlayPause -> {
-                    isPlaying = !isPlaying
-                    if (isPlaying) {
-                        nearestStops?.let {
-                            val speak = it.buildTTSSpeakableString(language)
-                            tts.speak(speak) { isPlaying = false }
-                        }
-                    } else {
-                        tts.stop()
+                withContext(Dispatchers.Main) {
+                    if (station.id != nearestStops?.id) {
+                        Log.d(TAG, "New nearest station: ${station.name}")
+                        nearestStops = station.copy(departures = departures)
+                        canPlay = true
                     }
                 }
-
-                MainEvent.PermissionDenied -> {
-                    // Neue Logik für temporäre Berechtigungsverweigerung
-                    Log.w("MainViewModel", "Standortberechtigung wurde verweigert")
+            } ?: run {
+                withContext(Dispatchers.Main) {
+                    nearestStops = null
                     canPlay = false
-                    isPlaying = false
-                }
-
-                MainEvent.PermissionPermanentlyDenied -> {
-                    // Neue Logik für dauerhafte Verweigerung
-                    Log.e("MainViewModel", "Standortberechtigung dauerhaft verweigert")
-                    canPlay = false
-                    isPlaying = false
-                    // Optional: Navigation zu Einstellungen anbieten
                 }
             }
         }
+    }
+
+    private fun togglePlayState() {
+        Log.d(TAG, "Toggling play state. Current: $isPlaying")
+        isPlaying = !isPlaying
+        if (isPlaying) {
+            nearestStops?.let {
+                tts.speak(it.buildTTSSpeakableString(language)) { isPlaying = false }
+            }
+        } else {
+            tts.stop()
+        }
+    }
+
+    private fun handlePermissionDenied() {
+        Log.w(TAG, "Location permission denied")
+        canPlay = false
+        isPlaying = false
+    }
+
+    private fun handlePermanentDenial() {
+        Log.e(TAG, "Location permission permanently denied")
+        canPlay = false
+        isPlaying = false
     }
 }
 
 sealed class MainEvent {
     data class LocationUpdate(val latitude: Double, val longitude: Double) : MainEvent()
-    data object TogglePlayPause : MainEvent()
-    data object PermissionDenied : MainEvent()
-    data object PermissionPermanentlyDenied : MainEvent()
+    object TogglePlayPause : MainEvent()
+    object PermissionDenied : MainEvent()
+    object PermissionPermanentlyDenied : MainEvent()
 }
 
 data class Station(
@@ -112,42 +123,52 @@ data class Station(
             append("${language.getString("tts.hold")} ")
             append(name)
             append(". ${language.getString("tts.next_departures")}: ")
-            departures.forEach {
-                when(it.platformType) {
+
+            departures.forEachIndexed { index, departure ->
+                if (index > 0) append(". ")
+
+                when (departure.platformType) {
                     "Platform", "Tram" -> append("${language.getString("tts.line")} ")
-                    "Railtrack" -> append(" ")
-                    else -> append(" ")
+                    "Railtrack" -> append("${language.getString("tts.railtrack")} ")
+                    else -> append("")
                 }
-                append(it.line.replace(Regex("(?<=[A-Za-z])(?=\\d)"), " ")) // to make sure that the line is spoken correctly ("S80" -> "S 80")
+
+                append(departure.line.replace(Regex("(?<=[A-Za-z])(?=\\d)"), " "))
                 append(" ${language.getString("tts.in_direction")} ")
-                append(it.destination.replace(" Bahnhof", ""))  // for better pronunciation and closer to the actual text that the DB uses for announcements
-                ((it.time.hour * 60 + it.time.minute).minutes - (LocalTime.now().hour * 60 + LocalTime.now().minute).minutes).inWholeMinutes.let { minutes ->
-                    if (minutes == 0L) append(" ${language.getString("tts.now")}")
-                    else if (minutes > 60L) append(" ${language.getString("tts.at_time")} ${it.time}")
-                    else append(" ${language.getString("tts.in")} $minutes ${language.getString("tts.minutes")}")
+                append(departure.destination.replace(" Bahnhof", ""))
+
+                val minutes = ((departure.time.hour * 60 + departure.time.minute) -
+                        (LocalTime.now().hour * 60 + LocalTime.now().minute))
+
+                when {
+                    minutes <= 0 -> append(" ${language.getString("tts.now")}")
+                    minutes > 60 -> append(" ${language.getString("tts.at_time")} ${departure.time}")
+                    else -> append(" ${language.getString("tts.in")} $minutes ${language.getString("tts.minutes")}")
                 }
+
                 append(" ${language.getString("tts.at")} ")
-                when(it.platformType) {
+                when (departure.platformType) {
                     "Platform", "Tram" -> append(language.getString("tts.platform"))
                     "Railtrack" -> append(language.getString("tts.railtrack"))
-                    else -> append(it.platformType)
+                    else -> append(departure.platformType)
                 }
-                append(" ")
-                append(it.platformName)
-                if (it.isCancelled) append(" ${language.getString("tts.isCancelled")}")
-                else if (it.delayInMinutes != 0) {
+                append(" ${departure.platformName}")
+
+                if (departure.isCancelled) {
+                    append(" ${language.getString("tts.isCancelled")}")
+                } else if (departure.delayInMinutes != 0) {
                     append(", ${language.getString("tts.today")} ")
-                    if (abs(it.delayInMinutes) == 1) append(" ${language.getString("tts.one_minute")} ")
-                    else append(" ${abs(it.delayInMinutes)} ${language.getString("tts.minutes")} ")
-                    if (it.delayInMinutes > 0) append(" ${language.getString("tts.later")}")
-                    else append(" ${language.getString("tts.earlier")}")
+                    when (abs(departure.delayInMinutes)) {
+                        1 -> append(language.getString("tts.one_minute"))
+                        else -> append("${abs(departure.delayInMinutes)} ${language.getString("tts.minutes")}")
+                    }
+                    append(if (departure.delayInMinutes > 0) " ${language.getString("tts.later")}"
+                    else " ${language.getString("tts.earlier")}")
                 }
-                append(" . ")
             }
         }
     }
 }
-
 data class Departure(
     val line: String,
     val destination: String,
