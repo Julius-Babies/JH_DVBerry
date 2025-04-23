@@ -10,6 +10,9 @@ on:
 # Where it will run
 jobs:
   build:
+    permissions:
+      packages: write
+      contents: write
     runs-on: ubuntu-latest
     steps:
       # Checkout the code
@@ -66,25 +69,25 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
+      # Create tag
+      - name: Create tag
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: "refs/tags/${{ github.ref }}",
+              sha: context.sha
+            })
+
       # Create release
       - name: Create release
-        uses: actions/create-release@v1
-        id: create_release
+        uses: elgohr/Github-Release-Action@v5
         with:
+          name: DVBerry
+          tag_name: ${{ github.ref }}
+          body: DVBerry (automatisch generiert). Installiere die APK auf deinem Gerät.
           draft: false
           prerelease: false
-          release_name: DVBerry ${{ github.ref_name }}
-          tag_name: ${{ github.ref_name }}
-          body: DVBerry ${{ github.ref_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # Upload release
-      - name: Upload release
-        uses: softprops/action-gh-release@v1
-        with:
           files: app/build/outputs/apk/release/app-release.apk
-          tag_name: ${{ github.ref_name }}
-          draft: false
-          prerelease: false
-          token: ${{ secrets.GH_PAT }}
