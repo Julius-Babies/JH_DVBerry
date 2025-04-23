@@ -5,7 +5,7 @@ name: App release
 on:
   push:
     branches:
-      - 7-ci-signing
+      - main
 
 # Where it will run
 jobs:
@@ -65,3 +65,25 @@ jobs:
           path: app/build/outputs/apk/release/app-release.apk
           compression-level: 0
           if-no-files-found: error
+
+      # Create release
+      - name: Create release
+        uses: actions/create-release@v1
+        id: create_release
+        with:
+          draft: false
+          prerelease: false
+          release_name: DVBerry ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          body: DVBerry ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Upload release
+      - name: Upload release
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: app/build/outputs/apk/release/app-release.apk
+          asset_name: DVBerry.apk
+          asset_content_type: application/vnd.android.package-archive
