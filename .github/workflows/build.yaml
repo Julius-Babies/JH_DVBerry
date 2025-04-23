@@ -28,7 +28,7 @@ jobs:
         uses: android-actions/setup-android@v2
 
       - name: Setup Gradle Cache
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: |
             ~/.gradle/caches
