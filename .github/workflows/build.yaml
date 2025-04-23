@@ -39,19 +39,19 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Restore playstore.keystore.jks
-        run: echo $KEYSTORE_FILE | base64 -d > ${GITHUB_WORKSPACE}/keystore.jks
+        run: echo ${{secrets.KEYSTORE_FILE}} | base64 -d > ${GITHUB_WORKSPACE}/keystore.jks
 
       - name: Add keystore information to local.properties
         run: echo "signing.default.file=${GITHUB_WORKSPACE}/keystore.jks" >> local.properties
 
       - name: Add keystore password to local.properties
-        run: echo "signing.default.storepassword=$KEYSTORE_PASSWORD" >> local.properties
+        run: echo "signing.default.storepassword=${{secrets.KEYSTORE_PASSWORD}}" >> local.properties
 
       - name: Add keystore alias to local.properties
         run: echo "signing.default.keyalias=key0" >> local.properties
 
       - name: Add keystore key password to local.properties
-        run: echo "signing.default.keypassword=$KEYSTORE_KEY_PASSWORD" >> local.properties
+        run: echo "signing.default.keypassword=${{secrets.KEYSTORE_PASSWORD}}" >> local.properties
 
       # Build the app
       - name: Build the app
