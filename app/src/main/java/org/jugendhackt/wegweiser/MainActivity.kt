@@ -52,6 +52,7 @@ import org.jugendhackt.wegweiser.ui.theme.WegweiserTheme
 import org.koin.androidx.compose.KoinAndroidContext
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.compose.koinInject
+import org.jugendhackt.wegweiser.MainEvent
 
 class MainActivity : AppCompatActivity() {
     val viewModel: MainViewModel by viewModel()
