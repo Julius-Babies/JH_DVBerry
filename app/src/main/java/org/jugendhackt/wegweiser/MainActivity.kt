@@ -53,14 +53,20 @@ import org.koin.androidx.compose.KoinAndroidContext
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.compose.koinInject
 
+
 class MainActivity : AppCompatActivity() {
-    val viewModel: MainViewModel by viewModel()
-    var hasLocationPermissionRequested = false
+    // 1. ViewModel mit korrekter Lazy-Initialisierung
+    private val viewModel: MainViewModel by viewModel()
 
-    private lateinit var locationManager: LocationManager
-    private var locationListener: LocationListener? = null
-
-    // In onCreate()
+    // 2. LocationListener erst NACH ViewModel deklarieren
+    private val locationListener = object : LocationListener {
+        override fun onLocationChanged(location: Location) {
+            // 3. ViewModel ist jetzt initialisiert
+            viewModel.onEvent(MainEvent.LocationUpdate(
+                location.latitude,
+                location.longitude
+            ))
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
@@ -184,24 +190,29 @@ class MainActivity : AppCompatActivity() {
 
     @RequiresPermission(Manifest.permission.ACCESS_FINE_LOCATION) // Oder ACCESS_COARSE_LOCATION je nach Provider
     private fun startLocationUpdates() {
-            try {
-                // Letzte bekannte Position
-                val lastLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                lastLocation?.let {
-                    viewModel.onEvent(MainEvent.LocationUpdate(it.latitude, it.longitude))
-                }
+        try {
+            val providers = listOf(
+                LocationManager.GPS_PROVIDER,
+                LocationManager.NETWORK_PROVIDER
+            ).filter { locationManager.isProviderEnabled(it) }
 
+            if (providers.isEmpty()) {
+                Log.w("Location", "Kein Provider verfügbar")
+                return
+            }
                 // Live-Updates
+            providers.forEach { provider ->
                 locationManager.requestLocationUpdates(
-                    LocationManager.GPS_PROVIDER, // oder NETWORK_PROVIDER
-                    1000L,    // Intervall in Millisekunden
-                    1f,       // Mindeständerung in Metern
+                    provider,
+                    1000L,
+                    1f,
                     locationListener!!,
                     Looper.getMainLooper()
                 )
+                }
             } catch (e: SecurityException) {
-                Log.e("Location", "Permission fehlt", e)
-            }
+            Log.e("Location", "Berechtigungsfehler: ${e.message}")
+        }
         }
     }
 
@@ -218,64 +229,64 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private val locationListener = object : LocationListener {
-        override fun onLocationChanged(location: Location) {
-            viewModel.onEvent(MainEvent.LocationUpdate(location.latitude, location.longitude))
-        }
+private val locationListener = object : LocationListener {
+    override fun onLocationChanged(location: Location) {
+        viewModel.onEvent(MainEvent.LocationUpdate(
+            location.latitude,
+            location.longitude
+        ))
+    }
 
-        override fun onProviderDisabled(provider: String) {
-            Log.w("Location", "Provider disabled: $provider")
+    override fun onProviderEnabled(provider: String) {
+        Log.d("Location", "Provider aktiviert: $provider")
+    }
+
+    override fun onProviderDisabled(provider: String) {
+        Log.w("Location", "Provider deaktiviert: $provider")
+    }
+}
+
+fun requestPermissions() {
+    if (hasLocationPermissionRequested) return
+    hasLocationPermissionRequested = true
+
+    val locationPermissionRequest = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        when {
+            permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) -> {
+                startLocationUpdates()
+            }
+            permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {
+                locationManager.requestLocationUpdates(
+                    LocationManager.NETWORK_PROVIDER,
+                    1000L,
+                    10f,
+                    locationListener,
+                    Looper.getMainLooper()
+                )
+            }
+            else -> {
+                Log.w("Permission", "Keine Standortberechtigung erteilt")
+            }
         }
     }
 
-    fun requestPermissions() {
-        if (hasLocationPermissionRequested) return
-        hasLocationPermissionRequested = true
-        val locationPermissionRequest = registerForActivityResult(
-            ActivityResultContracts.RequestMultiplePermissions()
-        ) { permissions ->
-            when {
-                permissions.getOrDefault(
+    if (ActivityCompat.shouldShowRequestPermissionRationale(
+            this,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        )
+    ) {
+        // Dialog zur Erklärung anzeigen
+        showRationaleDialog {
+            locationPermissionRequest.launch(
+                arrayOf(
                     Manifest.permission.ACCESS_FINE_LOCATION,
-                    false
-                ) -> {
-                    if (ActivityCompat.checkSelfPermission(
-                            this,
-                            Manifest.permission.ACCESS_FINE_LOCATION
-                        ) != PackageManager.PERMISSION_GRANTED || ActivityCompat.checkSelfPermission(
-                            this,
-                            Manifest.permission.ACCESS_COARSE_LOCATION
-                        ) != PackageManager.PERMISSION_GRANTED
-                    ) {
-                        // TODO: Consider calling
-                        //    ActivityCompat#requestPermissions
-                        // here to request the missing permissions, and then overriding
-                        //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                        //                                          int[] grantResults)
-                        // to handle the case where the user grants the permission. See the documentation
-                        // for ActivityCompat#requestPermissions for more details.
-                        return@registerForActivityResult
-                    }
-                    startLocationUpdates()
-                }
-
-                permissions.getOrDefault(
-                    Manifest.permission.ACCESS_COARSE_LOCATION,
-                    false
-                ) -> {
-                    // Only approximate location access granted.
-                }
-
-                else -> {
-                    // No location access granted.
-                }
-            }
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
         }
-
-        // Before you perform the actual permission request, check whether your app
-        // already has the permissions, and whether your app needs to show a permission
-        // rationale dialog. For more details, see Request permissions:
-        // https://developer.android.com/training/permissions/requesting#request-permission
+    } else {
         locationPermissionRequest.launch(
             arrayOf(
                 Manifest.permission.ACCESS_FINE_LOCATION,
