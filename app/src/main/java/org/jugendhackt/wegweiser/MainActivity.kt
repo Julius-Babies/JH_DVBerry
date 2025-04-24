@@ -59,6 +59,9 @@ import org.jugendhackt.wegweiser.ui.theme.WegweiserTheme
 import org.koin.androidx.compose.KoinAndroidContext
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.compose.koinInject
+import android.app.Application
+import org.koin.android.ext.koin.androidContext
+import org.koin.core.context.startKoin
 
 class MainActivity : AppCompatActivity() {
     private val TAG = "MainActivity"
