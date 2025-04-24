@@ -47,37 +47,35 @@ class MainViewModel(
 
     private suspend fun handleLocationUpdate(event: MainEvent.LocationUpdate) {
         withContext(Dispatchers.Default) {
-            Log.d(TAG, "Updating location: ${event.latitude}, ${event.longitude}")
-            latitude = event.latitude
-            longitude = event.longitude
-
+            // Berechnungen im Default Dispatcher
             val nearest = stops.minByOrNull { station ->
-                sqrt(
-                    (longitude - station.longitude).pow(2) +
-                            (latitude - station.latitude).pow(2)
-                )
+                calculateDistance(event.latitude, event.longitude, station)
             }
 
-            nearest?.let { station ->
-                val departures = withContext(Dispatchers.IO) {
-                    dvbSource.departureMonitor(station.id, 5)?.departures.orEmpty()
-                }
-
-                withContext(Dispatchers.Main) {
-                    if (station.id != nearestStops?.id) {
-                        Log.d(TAG, "New nearest station: ${station.name}")
-                        nearestStops = station.copy(departures = departures)
-                        canPlay = true
-                    }
-                }
-            } ?: run {
-                withContext(Dispatchers.Main) {
-                    nearestStops = null
-                    canPlay = false
-                }
+            // UI Updates im Main Dispatcher
+            withContext(Dispatchers.Main) {
+                updateUI(nearest)
             }
         }
     }
+
+    private fun calculateDistance(lat: Double, lon: Double, station: Station): Double {
+        return sqrt(
+            (lon - station.longitude).pow(2) +
+                    (lat - station.latitude).pow(2)
+        )
+    }
+
+    private fun updateUI(nearest: Station?) {
+        if (nearest != null) {
+            nearestStops = nearest
+            canPlay = true
+        } else {
+            nearestStops = null
+            canPlay = false
+        }
+    }
+
 
     private fun togglePlayState() {
         Log.d(TAG, "Toggling play state. Current: $isPlaying")

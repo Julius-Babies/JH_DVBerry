@@ -8,7 +8,6 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
-import android.os.HandlerThread
 import android.provider.Settings
 import android.util.Log
 import androidx.activity.compose.setContent
@@ -50,6 +49,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import org.jugendhackt.wegweiser.app.checkPermission
 import org.jugendhackt.wegweiser.language.language
 import org.jugendhackt.wegweiser.sensors.shake.ShakeSensor
@@ -63,17 +65,20 @@ class MainActivity : AppCompatActivity() {
     val viewModel: MainViewModel by viewModel()
     var hasLocationPermissionRequested = false
     private lateinit var locationManager: LocationManager
-    private val locationHandlerThread = HandlerThread("LocationThread").apply { start() }
 
     private val locationListener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
-            Log.d(TAG, "New location received")
-            viewModel.onEvent(MainEvent.LocationUpdate(location.latitude, location.longitude))
+            lifecycleScope.launch(Dispatchers.Default) {
+                Log.d(TAG, "New location received")
+                viewModel.onEvent(MainEvent.LocationUpdate(location.latitude, location.longitude))
+            }
         }
 
         override fun onProviderDisabled(provider: String) {
-            Log.w(TAG, "Location provider disabled: $provider")
-            checkProviderAvailability()
+            lifecycleScope.launch(Dispatchers.Main) {
+                Log.w(TAG, "Location provider disabled: $provider")
+                checkProviderAvailability()
+            }
         }
     }
 
@@ -122,18 +127,15 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        locationHandlerThread.quitSafely()
-    }
-
     private fun checkLocationAvailability() {
-        if (checkPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
-            Log.d(TAG, "Permission already granted")
-            startLocationUpdatesIfPossible()
-        } else {
-            Log.d(TAG, "Requesting permission")
-            requestPermissions()
+        lifecycleScope.launch(Dispatchers.IO) {
+            if (checkPermission(this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION)) {
+                Log.d(TAG, "Permission already granted")
+                startLocationUpdatesIfPossible()
+            } else {
+                Log.d(TAG, "Requesting permission")
+                requestPermissions()
+            }
         }
     }
 
@@ -157,12 +159,13 @@ class MainActivity : AppCompatActivity() {
                 1000L,
                 1f,
                 locationListener,
-                locationHandlerThread.looper
+                mainLooper
             )
         } catch (e: SecurityException) {
             Log.e(TAG, "Location permission error", e)
         }
     }
+
 
     private fun startLocationUpdatesIfPossible() {
         val isGpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
