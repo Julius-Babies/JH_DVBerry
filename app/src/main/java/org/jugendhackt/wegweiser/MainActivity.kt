@@ -72,7 +72,7 @@ class MainActivity : AppCompatActivity() {
     private val locationListener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
             lifecycleScope.launch(Dispatchers.Default) {
-                Log.d(TAG, "New location received")
+                Log.d(TAG, "New location received: lat=${location.latitude}, lon=${location.longitude}")
                 viewModel.onEvent(MainEvent.LocationUpdate(location.latitude, location.longitude))
             }
         }
@@ -82,6 +82,14 @@ class MainActivity : AppCompatActivity() {
                 Log.w(TAG, "Location provider disabled: $provider")
                 checkProviderAvailability()
             }
+        }
+
+        override fun onProviderEnabled(provider: String) {
+            Log.d(TAG, "Location provider enabled: $provider")
+        }
+
+        override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {
+            Log.d(TAG, "Location provider status changed: provider=$provider, status=$status")
         }
     }
 
@@ -147,16 +155,22 @@ class MainActivity : AppCompatActivity() {
     private fun startLocationUpdates(highAccuracy: Boolean) {
         try {
             val provider = when {
-                highAccuracy && locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ->
+                highAccuracy && locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) -> {
+                    Log.d(TAG, "Using GPS provider for high accuracy")
                     LocationManager.GPS_PROVIDER
-                locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER) ->
+                }
+                locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER) -> {
+                    Log.d(TAG, "Using Network provider")
                     LocationManager.NETWORK_PROVIDER
+                }
                 else -> {
+                    Log.e(TAG, "No location provider available")
                     showProviderErrorDialog()
                     return
                 }
             }
 
+            Log.d(TAG, "Requesting location updates from provider: $provider")
             locationManager.requestLocationUpdates(
                 provider,
                 1000L,

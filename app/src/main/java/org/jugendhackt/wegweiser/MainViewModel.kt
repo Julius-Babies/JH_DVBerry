@@ -31,7 +31,20 @@ class MainViewModel(
     var canPlay by mutableStateOf(false)
     var nearestStops by mutableStateOf<Station?>(null)
 
-    private val stops: List<Station> by lazy { dvbSource.getStations() }
+    private val stops: List<Station> by lazy { 
+        Log.d(TAG, "Initializing stops list")
+        try {
+            val stations = dvbSource.getStations()
+            Log.d(TAG, "Loaded ${stations.size} stations")
+            if (stations.isEmpty()) {
+                Log.e(TAG, "No stations loaded from DVB source")
+            }
+            stations
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading stations", e)
+            emptyList()
+        }
+    }
 
     fun onEvent(event: MainEvent) {
         Log.d(TAG, "Received event: ${event.javaClass.simpleName}")
@@ -47,10 +60,20 @@ class MainViewModel(
 
     private suspend fun handleLocationUpdate(event: MainEvent.LocationUpdate) {
         withContext(Dispatchers.Default) {
+            Log.d(TAG, "Handling location update: lat=${event.latitude}, lon=${event.longitude}")
+            if (stops.isEmpty()) {
+                Log.e(TAG, "No stations available for distance calculation")
+                withContext(Dispatchers.Main) {
+                    updateUI(null)
+                }
+                return@withContext
+            }
+            
             // Berechnungen im Default Dispatcher
             val nearest = stops.minByOrNull { station ->
                 calculateDistance(event.latitude, event.longitude, station)
             }
+            Log.d(TAG, "Found nearest station: ${nearest?.name ?: "none"}")
 
             // UI Updates im Main Dispatcher
             withContext(Dispatchers.Main) {
@@ -60,13 +83,16 @@ class MainViewModel(
     }
 
     private fun calculateDistance(lat: Double, lon: Double, station: Station): Double {
-        return sqrt(
+        val distance = sqrt(
             (lon - station.longitude).pow(2) +
                     (lat - station.latitude).pow(2)
         )
+        Log.d(TAG, "Calculated distance to ${station.name}: $distance")
+        return distance
     }
 
     private fun updateUI(nearest: Station?) {
+        Log.d(TAG, "Updating UI with station: ${nearest?.name ?: "none"}")
         if (nearest != null) {
             nearestStops = nearest
             canPlay = true

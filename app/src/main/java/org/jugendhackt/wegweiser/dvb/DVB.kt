@@ -1,6 +1,7 @@
 package org.jugendhackt.wegweiser.dvb
 
 import android.content.Context
+import android.util.Log
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.get
@@ -86,12 +87,15 @@ class DVBSource(
     }
 
     fun getStations(): List<Station> {
+        Log.d("DVBSource", "Starting to load stations from raw resource")
         val inputStream = context.resources.openRawResource(R.raw.stops)
         val reader = BufferedReader(InputStreamReader(inputStream))
         val json = Json { ignoreUnknownKeys = true }
         return reader.useLines { lines ->
+            Log.d("DVBSource", "Reading stations from JSON")
             lines.joinToString("").let {
                 val json = json.decodeFromString<FeatureCollection>(it)
+                Log.d("DVBSource", "Successfully parsed ${json.features.size} stations")
                 json.features.map {
                     Station(it.properties.number, it.properties.name, it.geometry.coordinates[0], it.geometry.coordinates[1], emptyList())
                 }
