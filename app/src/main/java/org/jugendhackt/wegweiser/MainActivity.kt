@@ -173,7 +173,7 @@ class MainActivity : AppCompatActivity() {
             Log.d(TAG, "Requesting location updates from provider: $provider")
             locationManager.requestLocationUpdates(
                 provider,
-                1000L,
+                1000L, 
                 1f,
                 locationListener,
                 mainLooper
