@@ -9,6 +9,8 @@ Die App unterstützt außerdem eine intuitive Steuerung durch Schütteln des Sma
 
 <img src="https://github.com/user-attachments/assets/4b1b8520-273e-41f2-9fb7-7b31d815fbbf" alt="image" width="300" height="auto">
 
+**[YouTube‑Präsentation der App ansehen](https://www.youtube.com/watch?v=LjKDBmS6PsI)**
+
 ## Funktionsweise
 1. **Anzeige:** Im oberen Bereich der App werden die nächsten Abfahrtszeiten übersichtlich angezeigt.
 2. **Sprachausgabe:** Ein großer Button im unteren Bereich liest die angezeigten Abfahrten in optimierter Form vor.
@@ -24,3 +26,4 @@ Dabei wird auf die Sprachausgabe-API von Android zurückgegriffen.
 
 ### Credits & Attribution
 - [VVO-WebAPI Dokumentation (GitHub)](https://github.com/kiliankoe/vvo/blob/main/documentation/webapi.md)
+
