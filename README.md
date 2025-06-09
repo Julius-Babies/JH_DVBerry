@@ -7,7 +7,7 @@ DVBerry ist eine Android‑App, die speziell für sehbehinderte und sehbeeinträ
 
 Die App unterstützt außerdem eine intuitive Steuerung durch Schütteln des Smartphones: Ein einfacher Shake toggelt zwischen Abspielen und Pausieren der Sprachausgabe.
 
-<img src="https://github.com/user-attachments/assets/4b1b8520-273e-41f2-9fb7-7b31d815fbbf" alt="image" width="300" height="auto">
+<img src="https://github.com/user-attachments/assets/7c036e0c-7e32-4884-a8cd-c307f71876fb" alt="image" width="300" height="auto">
 
 ## Funktionsweise
 1. **Anzeige:** Im oberen Bereich der App werden die nächsten Abfahrtszeiten übersichtlich angezeigt.
