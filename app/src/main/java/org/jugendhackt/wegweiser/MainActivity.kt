@@ -579,7 +579,12 @@ class MainActivity : AppCompatActivity() {
             Text(
                 text = groupedDepartures.joinToString("\n") { departure ->
                     val timeString = String.format("%02d:%02d", departure.time.hour, departure.time.minute)
-                    "${departure.line}: ${departure.destination} ($timeString)"
+                    val delayString = when {
+                        departure.delayInMinutes > 0 -> " +${departure.delayInMinutes}min"
+                        departure.delayInMinutes < 0 -> " ${departure.delayInMinutes}min"
+                        else -> ""
+                    }
+                    "${departure.line}: ${departure.destination} ($timeString)$delayString"
                 }
             )
         }
