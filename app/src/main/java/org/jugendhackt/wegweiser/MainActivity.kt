@@ -79,16 +79,16 @@ class MainActivity : AppCompatActivity() {
     private var isLocationListenerRegistered = false
 
     companion object {
-        private const val MIN_DISTANCE_CHANGE = 20 // meters
-        private const val LOCATION_ACCURACY_THRESHOLD = 200 // meters
-        private const val LOCATION_AGE_THRESHOLD = 60000L // 1 minute in milliseconds
-        private const val GPS_MIN_TIME = 10000L // 10 seconds
-        private const val NETWORK_MIN_TIME = 15000L // 15 seconds
-        private const val PASSIVE_MIN_TIME = 30000L // 30 seconds
-        private const val GPS_MIN_DISTANCE = 20f // meters
-        private const val NETWORK_MIN_DISTANCE = 30f // meters
-        private const val PASSIVE_MIN_DISTANCE = 50f // meters
-        private const val SHAKE_TIME_THRESHOLD = 1_500_000_000L // 1.5 seconds in nanoseconds
+        private const val MIN_DISTANCE_CHANGE_METERS = 20
+        private const val LOCATION_ACCURACY_THRESHOLD_METERS = 200
+        private const val LOCATION_AGE_THRESHOLD_MILLIS = 60000L
+        private const val GPS_MIN_TIME_MILLIS = 10000L
+        private const val NETWORK_MIN_TIME_MILLIS = 15000L
+        private const val PASSIVE_MIN_TIME_MILLIS = 30000L
+        private const val GPS_MIN_DISTANCE_METERS = 20f
+        private const val NETWORK_MIN_DISTANCE_METERS = 30f
+        private const val PASSIVE_MIN_DISTANCE_METERS = 50f
+        private const val SHAKE_TIME_THRESHOLD_NANOS = 1_500_000_000L
     }
 
     private val locationListener = object : LocationListener {
@@ -122,7 +122,7 @@ class MainActivity : AppCompatActivity() {
                             last.latitude, last.longitude,
                             location.latitude, location.longitude
                         )
-                        distance > MIN_DISTANCE_CHANGE
+                        distance > MIN_DISTANCE_CHANGE_METERS
                     } ?: true
 
                     // Accept location if:
@@ -130,7 +130,7 @@ class MainActivity : AppCompatActivity() {
                     // 2. OR we don't have a last known location
                     // 3. OR the new location is more accurate than the last known one
                     val shouldUpdate = if (significantChange) {
-                        if (location.accuracy <= LOCATION_ACCURACY_THRESHOLD) {
+                        if (location.accuracy <= LOCATION_ACCURACY_THRESHOLD_METERS) {
                             true
                         } else if (lastKnownLocation == null) {
                             Log.d(TAG, "Accepting less accurate location as first location")
@@ -273,7 +273,7 @@ class MainActivity : AppCompatActivity() {
                     Log.d(TAG, "Shake sensor initialized")
                     var timeThreshold = 0L
                     shakeSensor.add {
-                        if (System.nanoTime() - timeThreshold < SHAKE_TIME_THRESHOLD) return@add
+                        if (System.nanoTime() - timeThreshold < SHAKE_TIME_THRESHOLD_NANOS) return@add
                         timeThreshold = System.nanoTime()
                         viewModel.onEvent(MainEvent.TogglePlayPause)
                     }
@@ -375,7 +375,7 @@ class MainActivity : AppCompatActivity() {
 
                 if (bestLocation != null) {
                     val locationAge = System.currentTimeMillis() - bestLocation.time
-                    if (locationAge < LOCATION_AGE_THRESHOLD && bestLocation.accuracy <= LOCATION_ACCURACY_THRESHOLD) {
+                    if (locationAge < LOCATION_AGE_THRESHOLD_MILLIS && bestLocation.accuracy <= LOCATION_ACCURACY_THRESHOLD_METERS) {
                         Log.d(TAG, "Using best last known location from ${bestLocation.provider}: lat=${bestLocation.latitude}, lon=${bestLocation.longitude}, accuracy=${bestLocation.accuracy}m")
                         lastKnownLocation = bestLocation
                         lastUpdateTime = System.currentTimeMillis()
@@ -392,14 +392,14 @@ class MainActivity : AppCompatActivity() {
                     for (provider in providers) {
                         try {
                             val minTime = when (provider) {
-                                LocationManager.GPS_PROVIDER -> GPS_MIN_TIME
-                                LocationManager.NETWORK_PROVIDER -> NETWORK_MIN_TIME
-                                else -> PASSIVE_MIN_TIME
+                                LocationManager.GPS_PROVIDER -> GPS_MIN_TIME_MILLIS
+                                LocationManager.NETWORK_PROVIDER -> NETWORK_MIN_TIME_MILLIS
+                                else -> PASSIVE_MIN_TIME_MILLIS
                             }
                             val minDistance = when (provider) {
-                                LocationManager.GPS_PROVIDER -> GPS_MIN_DISTANCE
-                                LocationManager.NETWORK_PROVIDER -> NETWORK_MIN_DISTANCE
-                                else -> PASSIVE_MIN_DISTANCE
+                                LocationManager.GPS_PROVIDER -> GPS_MIN_DISTANCE_METERS
+                                LocationManager.NETWORK_PROVIDER -> NETWORK_MIN_DISTANCE_METERS
+                                else -> PASSIVE_MIN_DISTANCE_METERS
                             }
                             
                             locationManager.requestLocationUpdates(
