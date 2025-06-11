@@ -48,7 +48,11 @@ data class Haltestelle(
 class DVBSource(
     private val context: Context
 ) {
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json { 
+        ignoreUnknownKeys = true
+        isLenient = true
+        coerceInputValues = true
+    }
 
     suspend fun departureMonitor(stopID: String, limit: Int): Station? {
         val client = HttpClient(CIO)
@@ -76,7 +80,7 @@ class DVBSource(
                     delayInMinutes = it.realTime?.let { realTime ->
                         val plannedTime = extractLocalTimeFromDateString(it.scheduleTime)
                         val actualTime = extractLocalTimeFromDateString(realTime)
-                        (plannedTime.hour - actualTime.hour) * 60 + (plannedTime.minute - actualTime.minute)
+                        (actualTime.hour - plannedTime.hour) * 60 + (actualTime.minute - plannedTime.minute)
                     } ?: 0,
                     isCancelled = it.state == "Cancelled"
                 )
@@ -88,18 +92,58 @@ class DVBSource(
 
     fun getStations(): List<Station> {
         Log.d("DVBSource", "Starting to load stations from raw resource")
-        val inputStream = context.resources.openRawResource(R.raw.stops)
-        val reader = BufferedReader(InputStreamReader(inputStream))
-        val json = Json { ignoreUnknownKeys = true }
-        return reader.useLines { lines ->
-            Log.d("DVBSource", "Reading stations from JSON")
-            lines.joinToString("").let {
-                val json = json.decodeFromString<FeatureCollection>(it)
-                Log.d("DVBSource", "Successfully parsed ${json.features.size} stations")
-                json.features.map {
-                    Station(it.properties.number, it.properties.name, it.geometry.coordinates[0], it.geometry.coordinates[1], emptyList())
+        return try {
+            val inputStream = context.resources.openRawResource(R.raw.stops)
+            val reader = BufferedReader(InputStreamReader(inputStream))
+            
+            reader.useLines { lines ->
+                Log.d("DVBSource", "Reading stations from JSON")
+                try {
+                    val content = lines.joinToString("")
+                    if (content.isBlank()) {
+                        Log.e("DVBSource", "Empty JSON content")
+                        emptyList<Station>()
+                    } else {
+                        Log.d("DVBSource", "JSON content length: ${content.length}")
+                        Log.d("DVBSource", "First 100 characters: ${content.take(100)}")
+                        
+                        try {
+                            val jsonData = json.decodeFromString<FeatureCollection>(content)
+                            Log.d("DVBSource", "Successfully parsed ${jsonData.features.size} stations")
+                            
+                            jsonData.features.mapNotNull { feature ->
+                                try {
+                                    if (feature.geometry.coordinates.size < 2) {
+                                        Log.e("DVBSource", "Invalid coordinates for station: ${feature.properties.name}")
+                                        null
+                                    } else {
+                                        Station(
+                                            feature.properties.number,
+                                            feature.properties.name,
+                                            feature.geometry.coordinates[0],
+                                            feature.geometry.coordinates[1],
+                                            emptyList()
+                                        )
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("DVBSource", "Error creating station from feature: ${feature.properties.name}", e)
+                                    null
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e("DVBSource", "Error parsing JSON content", e)
+                            Log.e("DVBSource", "JSON content sample: ${content.take(500)}")
+                            emptyList<Station>()
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("DVBSource", "Error reading JSON content", e)
+                    emptyList<Station>()
                 }
             }
+        } catch (e: Exception) {
+            Log.e("DVBSource", "Error loading stations resource", e)
+            emptyList<Station>()
         }
     }
 
@@ -112,7 +156,7 @@ class DVBSource(
 @Serializable
 data class FeatureCollection(
     val type: String,
-    val features: List<Feature>
+    val features: List<Feature> = emptyList()
 )
 
 @Serializable
@@ -136,5 +180,5 @@ data class Properties(
 @Serializable
 data class Geometry(
     val type: String,
-    val coordinates: List<Double>
+    val coordinates: List<Double> = emptyList()
 )

@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "*.kt": "kotlin"
+    },
+    "[kotlin]": {
+        "editor.defaultFormatter": "fwcd.kotlin",
+        "editor.formatOnSave": true,
+        "editor.tabSize": 4,
+        "editor.insertSpaces": true
+    }
+} 

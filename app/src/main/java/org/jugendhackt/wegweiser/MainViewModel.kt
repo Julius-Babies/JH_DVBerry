@@ -69,26 +69,67 @@ class MainViewModel(
                 return@withContext
             }
             
-            // Berechnungen im Default Dispatcher
-            val nearest = stops.minByOrNull { station ->
-                calculateDistance(event.latitude, event.longitude, station)
-            }
-            Log.d(TAG, "Found nearest station: ${nearest?.name ?: "none"}")
+            try {
+                val nearest = stops.minByOrNull { station ->
+                    calculateDistance(event.latitude, event.longitude, station)
+                }
+                Log.d(TAG, "Found nearest station: ${nearest?.name ?: "none"}")
 
-            // UI Updates im Main Dispatcher
-            withContext(Dispatchers.Main) {
-                updateUI(nearest)
+                if (nearest != null) {
+                    val distance = calculateDistance(event.latitude, event.longitude, nearest)
+                    // Increased distance threshold to 250 meters for better user experience
+                    if (distance <= 250.0) {
+                        try {
+                            val stationWithDepartures = dvbSource.departureMonitor(nearest.id, 10)
+                            withContext(Dispatchers.Main) {
+                                updateUI(stationWithDepartures)
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error fetching departures", e)
+                            withContext(Dispatchers.Main) {
+                                updateUI(null)
+                            }
+                        }
+                    } else {
+                        Log.d(TAG, "Too far from nearest station: $distance meters")
+                        withContext(Dispatchers.Main) {
+                            updateUI(null)
+                        }
+                    }
+                } else {
+                withContext(Dispatchers.Main) {
+                        updateUI(null)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error processing location update", e)
+                withContext(Dispatchers.Main) {
+                    updateUI(null)
+                }
             }
         }
     }
 
     private fun calculateDistance(lat: Double, lon: Double, station: Station): Double {
-        val distance = sqrt(
-            (lon - station.longitude).pow(2) +
-                    (lat - station.latitude).pow(2)
-        )
-        Log.d(TAG, "Calculated distance to ${station.name}: $distance")
-        return distance
+        try {
+            val R = 6371000.0 // Earth's radius in meters
+            val lat1 = Math.toRadians(lat)
+            val lat2 = Math.toRadians(station.latitude)
+            val deltaLat = Math.toRadians(station.latitude - lat)
+            val deltaLon = Math.toRadians(station.longitude - lon)
+
+            val a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+                    Math.cos(lat1) * Math.cos(lat2) *
+                    Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2)
+            val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+            val distance = R * c
+
+            Log.d(TAG, "Calculated distance to ${station.name}: $distance meters")
+            return distance
+        } catch (e: Exception) {
+            Log.e(TAG, "Error calculating distance to ${station.name}", e)
+            return Double.MAX_VALUE
+        }
     }
 
     private fun updateUI(nearest: Station?) {
@@ -143,23 +184,41 @@ data class Station(
     val departures: List<Departure>
 ) {
     fun buildTTSSpeakableString(language: language): String {
+        // Get only the displayed departures (grouped by line and direction, sorted by time)
+        val displayedDepartures = departures
+            .groupBy { "${it.line} ${it.destination}" }
+            .mapValues { (_, departures) -> departures.minByOrNull { it.time } }
+            .values
+            .filterNotNull()
+            .sortedBy { it.time }
+            .take(5)
+
         return buildString {
             append("${language.getString("tts.hold")} ")
-            append(name)
+            append(name.replace("S-Bf.", "S Bahnhof"))
             append(". ${language.getString("tts.next_departures")}: ")
 
-            departures.forEachIndexed { index, departure ->
+            displayedDepartures.forEachIndexed { index, departure ->
                 if (index > 0) append(". ")
 
-                when (departure.platformType) {
-                    "Platform", "Tram" -> append("${language.getString("tts.line")} ")
-                    "Railtrack" -> append("${language.getString("tts.railtrack")} ")
-                    else -> append("")
+                // Handle line announcement based on line type
+                when {
+                    departure.line.startsWith("S") -> {
+                        // For S-Bahn lines, just announce the line number
+                        append(departure.line)
+                    }
+                    departure.platformType == "Railtrack" -> {
+                        // For trains, announce with "Gleis"
+                        append("${language.getString("tts.railtrack")} ${departure.line}")
+                    }
+                    else -> {
+                        // For other lines (bus, tram), announce with "Linie"
+                        append("${language.getString("tts.line")} ${departure.line}")
+                    }
                 }
 
-                append(departure.line.replace(Regex("(?<=[A-Za-z])(?=\\d)"), " "))
                 append(" ${language.getString("tts.in_direction")} ")
-                append(departure.destination.replace(" Bahnhof", ""))
+                append(departure.destination.replace(" Bahnhof", "").replace("S-Bf.", "S Bahnhof"))
 
                 val minutes = ((departure.time.hour * 60 + departure.time.minute) -
                         (LocalTime.now().hour * 60 + LocalTime.now().minute))
@@ -167,7 +226,13 @@ data class Station(
                 when {
                     minutes <= 0 -> append(" ${language.getString("tts.now")}")
                     minutes > 60 -> append(" ${language.getString("tts.at_time")} ${departure.time}")
-                    else -> append(" ${language.getString("tts.in")} $minutes ${language.getString("tts.minutes")}")
+                    else -> {
+                        append(" ${language.getString("tts.in")} ")
+                        when (minutes) {
+                            1 -> append("${language.getString("tts.one_minute")}")
+                            else -> append("$minutes ${language.getString("tts.minutes")}")
+                        }
+                    }
                 }
 
                 append(" ${language.getString("tts.at")} ")
@@ -176,11 +241,20 @@ data class Station(
                     "Railtrack" -> append(language.getString("tts.railtrack"))
                     else -> append(departure.platformType)
                 }
-                append(" ${departure.platformName}")
+                // Handle platform names for different line types
+                val platformName = when {
+                    // For S-Bahn lines, just use the platform number
+                    departure.line.startsWith("S") -> departure.platformName.replace(Regex("^(Gleis|Steig)\\s*"), "")
+                    // For other lines, remove "Gleis" prefix if present
+                    else -> departure.platformName.replace(Regex("^Gleis\\s*"), "")
+                }
+                append(" $platformName")
 
                 if (departure.isCancelled) {
                     append(" ${language.getString("tts.isCancelled")}")
-                } else if (departure.delayInMinutes != 0) {
+                }
+                
+                if (departure.delayInMinutes != 0) {
                     append(", ${language.getString("tts.today")} ")
                     when (abs(departure.delayInMinutes)) {
                         1 -> append(language.getString("tts.one_minute"))
