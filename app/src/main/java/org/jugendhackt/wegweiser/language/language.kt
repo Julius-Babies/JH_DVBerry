@@ -1,6 +1,8 @@
 package org.jugendhackt.wegweiser.language
 
 import android.content.Context
+import android.os.Build
+import android.os.LocaleList
 import android.util.Log
 
 class language(val context: Context) {
@@ -9,9 +11,10 @@ class language(val context: Context) {
     private val de = de()
 
     private fun getDeviceLanguage(): String {
-        val lang = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+        val lang = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             context.resources.configuration.locales[0].language
         } else {
+            @Suppress("DEPRECATION")
             context.resources.configuration.locale.language
         }
         Log.d(TAG, "Device language detected: $lang")
