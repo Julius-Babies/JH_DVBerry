@@ -14,6 +14,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import org.jugendhackt.wegweiser.Station
 import org.jugendhackt.wegweiser.language.language
+import java.util.Locale
 
 @Composable
 fun LoadingIndicator() {
@@ -58,13 +59,13 @@ fun StationInfo(station: Station, language: language) {
             .filterNotNull()
             .sortedBy { it.time }
             .forEach { departure ->
-                val timeString = String.format("%02d:%02d", departure.time.hour, departure.time.minute)
+                val timeString = String.format(Locale.getDefault(), "%02d:%02d", departure.time.hour, departure.time.minute)
                 val delayString = when {
                     departure.delayInMinutes > 0 -> " +${departure.delayInMinutes}min"
                     departure.delayInMinutes < 0 -> " ${departure.delayInMinutes}min"
                     else -> ""
                 }
-                val cancelledString = if (departure.isCancelled) " ${language.getString("ui.cancelled")}" else ""
+                val cancelledString = if (departure.isCancelled) " ${language.getString("ui.isCancelled")}" else ""
                 
                 Text(
                     text = "${departure.line}: ${departure.destination} ($timeString)$delayString$cancelledString",
