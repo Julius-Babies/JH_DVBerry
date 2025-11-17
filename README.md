@@ -23,6 +23,7 @@ Dabei wird auf die Sprachausgabe-API von Android zurückgegriffen.
 - **HTTP-Client:** Ktor
 - **Datenquelle:** VVO‑WebAPI
 - **Sensorik:** ShakeSensor (Accelerometer) für Gestensteuerung
+- **Aphängigkeit:** Google-Play-Store
 
 ### Credits & Attribution
 - [VVO-WebAPI Dokumentation (GitHub)](https://github.com/kiliankoe/vvo/blob/main/documentation/webapi.md)
