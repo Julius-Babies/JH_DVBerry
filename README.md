@@ -22,7 +22,6 @@ Dabei wird auf die Sprachausgabe-API von Android zurückgegriffen.
 - **Dependency Injection:** Koin
 - **HTTP-Client:** Ktor
 - **Datenquelle:** VVO‑WebAPI
-- **Sensorik:** ShakeSensor (Accelerometer) für Gestensteuerung
 - **Aphängigkeit:** Google-Play-Store
 
 ### Credits & Attribution
