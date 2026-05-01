@@ -22,18 +22,24 @@ runs:
 
     - name: Make gradlew executable
       run: chmod +x ./gradlew
+      shell: bash
 
     - name: Restore playstore.keystore.jks
       run: echo ${{secrets.KEYSTORE_FILE}} | base64 -d > ${GITHUB_WORKSPACE}/keystore.jks
+      shell: bash
 
     - name: Add keystore information to local.properties
       run: echo "signing.default.file=${GITHUB_WORKSPACE}/keystore.jks" >> local.properties
+      shell: bash
 
     - name: Add keystore password to local.properties
       run: echo "signing.default.storepassword=${{secrets.KEYSTORE_PASSWORD}}" >> local.properties
+      shell: bash
 
     - name: Add keystore alias to local.properties
       run: echo "signing.default.keyalias=key0" >> local.properties
+      shell: bash
 
     - name: Add keystore key password to local.properties
       run: echo "signing.default.keypassword=${{secrets.KEYSTORE_PASSWORD}}" >> local.properties
+      shell: bash
