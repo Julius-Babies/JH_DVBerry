@@ -1,23 +1,18 @@
 package org.jugendhackt.wegweiser.dvb
 
-import android.content.Context
-import android.util.Log
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.URLProtocol
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.jugendhackt.wegweiser.Departure
-import org.jugendhackt.wegweiser.R
 import org.jugendhackt.wegweiser.Station
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
@@ -46,7 +41,8 @@ data class Haltestelle(
 }
 
 class DVBSource(
-    private val context: Context
+    private val stationStore: StationStore,
+    private val client: HttpClient
 ) {
     private val json = Json { 
         ignoreUnknownKeys = true
@@ -55,7 +51,6 @@ class DVBSource(
     }
 
     suspend fun departureMonitor(stopID: String, limit: Int): Station? {
-        val client = HttpClient(CIO)
         val response: HttpResponse = client.get {
             url {
                 protocol = URLProtocol.HTTPS
@@ -90,61 +85,10 @@ class DVBSource(
         return station
     }
 
-    fun getStations(): List<Station> {
-        Log.d("DVBSource", "Starting to load stations from raw resource")
-        return try {
-            val inputStream = context.resources.openRawResource(R.raw.stops)
-            val reader = BufferedReader(InputStreamReader(inputStream))
-            
-            reader.useLines { lines ->
-                Log.d("DVBSource", "Reading stations from JSON")
-                try {
-                    val content = lines.joinToString("")
-                    if (content.isBlank()) {
-                        Log.e("DVBSource", "Empty JSON content")
-                        emptyList<Station>()
-                    } else {
-                        Log.d("DVBSource", "JSON content length: ${content.length}")
-                        Log.d("DVBSource", "First 100 characters: ${content.take(100)}")
-                        
-                        try {
-                            val jsonData = json.decodeFromString<FeatureCollection>(content)
-                            Log.d("DVBSource", "Successfully parsed ${jsonData.features.size} stations")
-                            
-                            jsonData.features.mapNotNull { feature ->
-                                try {
-                                    if (feature.geometry.coordinates.size < 2) {
-                                        Log.e("DVBSource", "Invalid coordinates for station: ${feature.properties.name}")
-                                        null
-                                    } else {
-                                        Station(
-                                            feature.properties.number,
-                                            feature.properties.name,
-                                            feature.geometry.coordinates[0],
-                                            feature.geometry.coordinates[1],
-                                            emptyList()
-                                        )
-                                    }
-                                } catch (e: Exception) {
-                                    Log.e("DVBSource", "Error creating station from feature: ${feature.properties.name}", e)
-                                    null
-                                }
-                            }
-                        } catch (e: Exception) {
-                            Log.e("DVBSource", "Error parsing JSON content", e)
-                            Log.e("DVBSource", "JSON content sample: ${content.take(500)}")
-                            emptyList<Station>()
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e("DVBSource", "Error reading JSON content", e)
-                    emptyList<Station>()
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("DVBSource", "Error loading stations resource", e)
-            emptyList<Station>()
-        }
+    fun observeStations(): StateFlow<List<Station>> = stationStore.observeStations()
+
+    suspend fun refreshStationsIfNeeded() {
+        stationStore.refreshIfNeeded()
     }
 
     private fun extractLocalTimeFromDateString(dateString: String): LocalTime {
