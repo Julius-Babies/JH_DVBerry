@@ -17,7 +17,7 @@ val localProperties = Properties().apply {
 
 android {
     namespace = "org.jugendhackt.wegweiser"
-    compileSdk = 35
+    compileSdk = 37
 
     if (listOf("signing.default.file", "signing.default.storepassword", "signing.default.keyalias", "signing.default.keypassword").all { localProperties.containsKey(it) }) {
         signingConfigs {
@@ -33,7 +33,7 @@ android {
     defaultConfig {
         applicationId = "org.jugendhackt.wegweiser"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 37
         versionCode = 1
         versionName = "1.0"
 
