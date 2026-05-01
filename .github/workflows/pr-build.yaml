@@ -13,9 +13,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup project
-        id: setup
-        uses: ./.github/actions/setup-project
+      - uses: ./.github/actions/setup-project
+        name: Setup Project
+        with:
+          keystore_file: ${{ secrets.KEYSTORE_FILE }}
+          keystore_password: ${{ secrets.KEYSTORE_PASSWORD }}
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug

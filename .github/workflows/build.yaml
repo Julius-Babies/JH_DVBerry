@@ -19,9 +19,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Setup project
-        id: setup
-        uses: ./.github/actions/setup-project
+      - uses: ./.github/actions/setup-project
+        name: Setup Project
+        with:
+          keystore_file: ${{ secrets.KEYSTORE_FILE }}
+          keystore_password: ${{ secrets.KEYSTORE_PASSWORD }}
 
       # Build the app
       - name: Build the app

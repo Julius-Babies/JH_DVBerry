@@ -1,45 +1,43 @@
 name: "Setup Project"
 description: "Common setup steps for CI"
 
+inputs:
+  keystore_file:
+    description: "Base64 encoded keystore file"
+    required: true
+  keystore_password:
+    description: "Password for the keystore"
+    required: true
+
 runs:
   using: "composite"
   steps:
     - name: Prepare JDK
-      uses: actions/setup-java@v5.2.0
+      uses: actions/setup-java@v4 # Updated to latest stable v4
       with:
         java-version: 17
         distribution: temurin
         cache: gradle
-        cache-dependency-path: |
-          ${{ github.workspace }}/gradle/wrapper/gradle-wrapper.properties
-          ${{ github.workspace }}/**/*.gradle*
 
     - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v5
+      uses: gradle/actions/setup-gradle@v3
 
     - name: Setup Android SDK
-      uses: android-actions/setup-android@v2
+      uses: android-actions/setup-android@v3
 
-    - name: Make gradlew executable
-      run: chmod +x ./gradlew
+    - name: Restore Keystore and Configure Properties
       shell: bash
-
-    - name: Restore playstore.keystore.jks
-      run: echo ${{secrets.KEYSTORE_FILE}} | base64 -d > ${GITHUB_WORKSPACE}/keystore.jks
-      shell: bash
-
-    - name: Add keystore information to local.properties
-      run: echo "signing.default.file=${GITHUB_WORKSPACE}/keystore.jks" >> local.properties
-      shell: bash
-
-    - name: Add keystore password to local.properties
-      run: echo "signing.default.storepassword=${{secrets.KEYSTORE_PASSWORD}}" >> local.properties
-      shell: bash
-
-    - name: Add keystore alias to local.properties
-      run: echo "signing.default.keyalias=key0" >> local.properties
-      shell: bash
-
-    - name: Add keystore key password to local.properties
-      run: echo "signing.default.keypassword=${{secrets.KEYSTORE_PASSWORD}}" >> local.properties
-      shell: bash
+      run: |
+        # Restore Keystore
+        echo "${{ inputs.keystore_file }}" | base64 -d > "${GITHUB_WORKSPACE}/keystore.jks"
+        
+        # Make gradlew executable (if not already handled by git)
+        chmod +x ./gradlew
+        
+        # Batch write to local.properties
+        {
+          echo "signing.default.file=${GITHUB_WORKSPACE}/keystore.jks"
+          echo "signing.default.storepassword=${{ inputs.keystore_password }}"
+          echo "signing.default.keyalias=key0"
+          echo "signing.default.keypassword=${{ inputs.keystore_password }}"
+        } >> local.properties
