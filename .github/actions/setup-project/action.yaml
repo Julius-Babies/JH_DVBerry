@@ -1,0 +1,39 @@
+name: "Setup Project"
+description: "Common setup steps for CI"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Prepare JDK
+      uses: actions/setup-java@v5.2.0
+      with:
+        java-version: 17
+        distribution: temurin
+        cache: gradle
+        cache-dependency-path: |
+          ${{ github.workspace }}/gradle/wrapper/gradle-wrapper.properties
+          ${{ github.workspace }}/**/*.gradle*
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v5
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v2
+
+    - name: Make gradlew executable
+      run: chmod +x ./gradlew
+
+    - name: Restore playstore.keystore.jks
+      run: echo ${{secrets.KEYSTORE_FILE}} | base64 -d > ${GITHUB_WORKSPACE}/keystore.jks
+
+    - name: Add keystore information to local.properties
+      run: echo "signing.default.file=${GITHUB_WORKSPACE}/keystore.jks" >> local.properties
+
+    - name: Add keystore password to local.properties
+      run: echo "signing.default.storepassword=${{secrets.KEYSTORE_PASSWORD}}" >> local.properties
+
+    - name: Add keystore alias to local.properties
+      run: echo "signing.default.keyalias=key0" >> local.properties
+
+    - name: Add keystore key password to local.properties
+      run: echo "signing.default.keypassword=${{secrets.KEYSTORE_PASSWORD}}" >> local.properties

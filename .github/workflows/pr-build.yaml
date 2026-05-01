@@ -1,0 +1,21 @@
+name: PR Build
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  verify-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup project
+        id: setup
+        uses: ./.github/actions/setup-project
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
