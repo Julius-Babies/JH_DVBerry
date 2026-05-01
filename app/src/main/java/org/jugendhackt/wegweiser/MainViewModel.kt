@@ -15,10 +15,14 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.datetime.Clock
+import kotlinx.datetime.LocalTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import org.jugendhackt.wegweiser.dvb.DVBSource
 import org.jugendhackt.wegweiser.language.language
 import org.jugendhackt.wegweiser.tts.TTS
-import java.time.LocalTime
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.math.abs
 
 class MainViewModel(
@@ -210,6 +214,7 @@ data class Station(
             .filterNotNull()
             .sortedBy { it.time }
             .take(5)
+        val now = currentLocalTime()
 
         return buildString {
             append("${language.getString("tts.hold")} ")
@@ -238,8 +243,10 @@ data class Station(
                 append(" ${language.getString("tts.in_direction")} ")
                 append(departure.destination.replace(" Bahnhof", "").replace("S-Bf.", "S Bahnhof"))
 
-                val minutes = ((departure.time.hour * 60 + departure.time.minute) -
-                        (LocalTime.now().hour * 60 + LocalTime.now().minute))
+                val minutes = (departure.time.toMillisecondOfDay() - now.toMillisecondOfDay())
+                    .milliseconds
+                    .inWholeMinutes
+                    .toInt()
 
                 when {
                     minutes <= 0 -> append(" ${language.getString("tts.now")}")
@@ -285,6 +292,10 @@ data class Station(
         }
     }
 }
+
+private fun currentLocalTime(): LocalTime =
+    Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).time
+
 data class Departure(
     val line: String,
     val destination: String,

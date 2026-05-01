@@ -8,15 +8,16 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.URLProtocol
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.jugendhackt.wegweiser.Departure
 import org.jugendhackt.wegweiser.Station
-import java.time.Instant
-import java.time.LocalTime
-import java.time.ZoneId
-import java.time.ZonedDateTime
+import kotlin.time.Duration.Companion.milliseconds
 
 @Serializable
 data class Haltestelle(
@@ -73,9 +74,12 @@ class DVBSource(
                     platformName = it.platform.name,
                     platformType = it.platform.type,
                     delayInMinutes = it.realTime?.let { realTime ->
-                        val plannedTime = extractLocalTimeFromDateString(it.scheduleTime)
-                        val actualTime = extractLocalTimeFromDateString(realTime)
-                        (actualTime.hour - plannedTime.hour) * 60 + (actualTime.minute - plannedTime.minute)
+                        val plannedTime = extractInstantFromDateString(it.scheduleTime)
+                        val actualTime = extractInstantFromDateString(realTime)
+                        (actualTime.toEpochMilliseconds() - plannedTime.toEpochMilliseconds())
+                            .milliseconds
+                            .inWholeMinutes
+                            .toInt()
                     } ?: 0,
                     isCancelled = it.state == "Cancelled"
                 )
@@ -92,8 +96,14 @@ class DVBSource(
     }
 
     private fun extractLocalTimeFromDateString(dateString: String): LocalTime {
+        return extractInstantFromDateString(dateString)
+            .toLocalDateTime(TimeZone.currentSystemDefault())
+            .time
+    }
+
+    private fun extractInstantFromDateString(dateString: String): Instant {
         val millis = dateString.substringAfter("(").substringBefore("+").substringBefore("-").toLong()
-        return ZonedDateTime.from(Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault())).toLocalTime()
+        return Instant.fromEpochMilliseconds(millis)
     }
 }
 
