@@ -7,7 +7,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jugendhackt.wegweiser.dvb.DVBSource
@@ -15,8 +19,6 @@ import org.jugendhackt.wegweiser.language.language
 import org.jugendhackt.wegweiser.tts.TTS
 import java.time.LocalTime
 import kotlin.math.abs
-import kotlin.math.pow
-import kotlin.math.sqrt
 
 class MainViewModel(
     private val dvbSource: DVBSource,
@@ -30,37 +32,44 @@ class MainViewModel(
     var isPlaying by mutableStateOf(false)
     var canPlay by mutableStateOf(false)
     var nearestStops by mutableStateOf<Station?>(null)
+    private var lastLocationUpdate: MainEvent.LocationUpdate? = null
+    private var locationProcessingJob: Job? = null
 
-    private val stops: List<Station> by lazy { 
-        Log.d(TAG, "Initializing stops list")
-        try {
-            val stations = dvbSource.getStations()
-            Log.d(TAG, "Loaded ${stations.size} stations")
-            if (stations.isEmpty()) {
-                Log.e(TAG, "No stations loaded from DVB source")
+    init {
+        viewModelScope.launch {
+            dvbSource.observeStations().drop(1).collect {
+                Log.d(TAG, "Station dataset updated; recomputing nearest stop")
+                lastLocationUpdate?.let { location ->
+                    processLocationUpdate(location)
+                }
             }
-            stations
-        } catch (e: Exception) {
-            Log.e(TAG, "Error loading stations", e)
-            emptyList()
         }
     }
 
     fun onEvent(event: MainEvent) {
         Log.d(TAG, "Received event: ${event.javaClass.simpleName}")
-        viewModelScope.launch {
-            when (event) {
-                is MainEvent.LocationUpdate -> handleLocationUpdate(event)
-                MainEvent.TogglePlayPause -> togglePlayState()
-                MainEvent.PermissionDenied -> handlePermissionDenied()
-                MainEvent.PermissionPermanentlyDenied -> handlePermanentDenial()
+        when (event) {
+            is MainEvent.LocationUpdate -> {
+                lastLocationUpdate = event
+                processLocationUpdate(event)
             }
+            MainEvent.TogglePlayPause -> viewModelScope.launch { togglePlayState() }
+            MainEvent.PermissionDenied -> handlePermissionDenied()
+            MainEvent.PermissionPermanentlyDenied -> handlePermanentDenial()
+        }
+    }
+
+    private fun processLocationUpdate(event: MainEvent.LocationUpdate) {
+        locationProcessingJob?.cancel()
+        locationProcessingJob = viewModelScope.launch {
+            handleLocationUpdate(event)
         }
     }
 
     private suspend fun handleLocationUpdate(event: MainEvent.LocationUpdate) {
         withContext(Dispatchers.Default) {
             Log.d(TAG, "Handling location update: lat=${event.latitude}, lon=${event.longitude}")
+            val stops = dvbSource.getStations()
             if (stops.isEmpty()) {
                 Log.e(TAG, "No stations available for distance calculation")
                 withContext(Dispatchers.Main) {
@@ -84,6 +93,9 @@ class MainViewModel(
                             withContext(Dispatchers.Main) {
                                 updateUI(stationWithDepartures)
                             }
+                        } catch (e: CancellationException) {
+                            Log.d(TAG, "Cancelled outdated departure lookup for ${nearest.name}")
+                            throw e
                         } catch (e: Exception) {
                             Log.e(TAG, "Error fetching departures", e)
                             withContext(Dispatchers.Main) {
@@ -97,10 +109,12 @@ class MainViewModel(
                         }
                     }
                 } else {
-                withContext(Dispatchers.Main) {
+                    withContext(Dispatchers.Main) {
                         updateUI(null)
                     }
                 }
+            } catch (_: CancellationException) {
+                Log.d(TAG, "Cancelled outdated location update")
             } catch (e: Exception) {
                 Log.e(TAG, "Error processing location update", e)
                 withContext(Dispatchers.Main) {
@@ -124,6 +138,7 @@ class MainViewModel(
             val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
             val distance = R * c
 
+            // spam's the log :)
             Log.d(TAG, "Calculated distance to ${station.name}: $distance meters")
             return distance
         } catch (e: Exception) {
