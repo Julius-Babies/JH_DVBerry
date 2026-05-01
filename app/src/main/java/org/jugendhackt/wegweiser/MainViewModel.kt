@@ -38,7 +38,9 @@ class MainViewModel(
 
     init {
         viewModelScope.launch {
-            dvbSource.observeStations().drop(1).collect {
+            dvbSource.observeStations()
+                .drop(1) // Skip the initial cached emission; we only need to react to later dataset updates.
+                .collect {
                 Log.d(TAG, "Station dataset updated; recomputing nearest stop")
                 lastLocationUpdate?.let { location ->
                     processLocationUpdate(location)
