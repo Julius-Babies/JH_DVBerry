@@ -9,6 +9,8 @@ class en {
         "ui.abbreviation_minutes" to "min",
         "ui.railtrack" to "Track",
         "ui.platform" to "Platform",
+        "ui.no_station_found" to "No station found",
+        "ui.move_closer" to "Please move closer to a station",
         "tts.hold" to "Stop",
         "tts.next_departures" to "Next departures",
         "tts.line" to "Line",

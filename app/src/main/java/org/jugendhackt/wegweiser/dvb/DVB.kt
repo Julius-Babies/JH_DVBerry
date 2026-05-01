@@ -1,26 +1,23 @@
 package org.jugendhackt.wegweiser.dvb
 
-import android.content.Context
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.URLProtocol
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.jugendhackt.wegweiser.Departure
-import org.jugendhackt.wegweiser.R
 import org.jugendhackt.wegweiser.Station
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.time.Instant
-import java.time.LocalTime
-import java.time.ZoneId
-import java.time.ZonedDateTime
+import kotlin.time.Duration.Companion.milliseconds
 
 @Serializable
 data class Haltestelle(
@@ -45,12 +42,16 @@ data class Haltestelle(
 }
 
 class DVBSource(
-    private val context: Context
+    private val stationStore: StationStore,
+    private val client: HttpClient
 ) {
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json { 
+        ignoreUnknownKeys = true
+        isLenient = true
+        coerceInputValues = true
+    }
 
     suspend fun departureMonitor(stopID: String, limit: Int): Station? {
-        val client = HttpClient(CIO)
         val response: HttpResponse = client.get {
             url {
                 protocol = URLProtocol.HTTPS
@@ -73,9 +74,12 @@ class DVBSource(
                     platformName = it.platform.name,
                     platformType = it.platform.type,
                     delayInMinutes = it.realTime?.let { realTime ->
-                        val plannedTime = extractLocalTimeFromDateString(it.scheduleTime)
-                        val actualTime = extractLocalTimeFromDateString(realTime)
-                        (plannedTime.hour - actualTime.hour) * 60 + (plannedTime.minute - actualTime.minute)
+                        val plannedTime = extractInstantFromDateString(it.scheduleTime)
+                        val actualTime = extractInstantFromDateString(realTime)
+                        (actualTime.toEpochMilliseconds() - plannedTime.toEpochMilliseconds())
+                            .milliseconds
+                            .inWholeMinutes
+                            .toInt()
                     } ?: 0,
                     isCancelled = it.state == "Cancelled"
                 )
@@ -85,30 +89,28 @@ class DVBSource(
         return station
     }
 
-    fun getStations(): List<Station> {
-        val inputStream = context.resources.openRawResource(R.raw.stops)
-        val reader = BufferedReader(InputStreamReader(inputStream))
-        val json = Json { ignoreUnknownKeys = true }
-        return reader.useLines { lines ->
-            lines.joinToString("").let {
-                val json = json.decodeFromString<FeatureCollection>(it)
-                json.features.map {
-                    Station(it.properties.number, it.properties.name, it.geometry.coordinates[0], it.geometry.coordinates[1], emptyList())
-                }
-            }
-        }
+    fun observeStations(): StateFlow<List<Station>> = stationStore.observeStations()
+
+    suspend fun refreshStationsIfNeeded() {
+        stationStore.refreshIfNeeded()
     }
 
     private fun extractLocalTimeFromDateString(dateString: String): LocalTime {
+        return extractInstantFromDateString(dateString)
+            .toLocalDateTime(TimeZone.currentSystemDefault())
+            .time
+    }
+
+    private fun extractInstantFromDateString(dateString: String): Instant {
         val millis = dateString.substringAfter("(").substringBefore("+").substringBefore("-").toLong()
-        return ZonedDateTime.from(Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault())).toLocalTime()
+        return Instant.fromEpochMilliseconds(millis)
     }
 }
 
 @Serializable
 data class FeatureCollection(
     val type: String,
-    val features: List<Feature>
+    val features: List<Feature> = emptyList()
 )
 
 @Serializable
@@ -132,5 +134,5 @@ data class Properties(
 @Serializable
 data class Geometry(
     val type: String,
-    val coordinates: List<Double>
+    val coordinates: List<Double> = emptyList()
 )
