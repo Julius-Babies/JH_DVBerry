@@ -1,7 +1,6 @@
 package org.jugendhackt.wegweiser.dvb
 
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.HttpResponse
@@ -42,10 +41,9 @@ data class Haltestelle(
 }
 
 class DVBSource(
-    private val stationStore: StationStore
+    private val stationStore: StationStore,
+    private val client: HttpClient
 ) {
-    private val client = HttpClient(CIO)
-
     private val json = Json { 
         ignoreUnknownKeys = true
         isLenient = true
@@ -87,12 +85,10 @@ class DVBSource(
         return station
     }
 
-    fun getStations(): List<Station> = stationStore.getStations()
-
     fun observeStations(): StateFlow<List<Station>> = stationStore.observeStations()
 
     suspend fun refreshStationsIfNeeded() {
-        stationStore.refreshIfNeeded(client)
+        stationStore.refreshIfNeeded()
     }
 
     private fun extractLocalTimeFromDateString(dateString: String): LocalTime {

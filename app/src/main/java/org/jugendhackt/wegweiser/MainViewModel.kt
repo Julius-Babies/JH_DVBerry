@@ -12,6 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jugendhackt.wegweiser.dvb.DVBSource
@@ -69,7 +70,7 @@ class MainViewModel(
     private suspend fun handleLocationUpdate(event: MainEvent.LocationUpdate) {
         withContext(Dispatchers.Default) {
             Log.d(TAG, "Handling location update: lat=${event.latitude}, lon=${event.longitude}")
-            val stops = dvbSource.getStations()
+            val stops = dvbSource.observeStations().first()
             if (stops.isEmpty()) {
                 Log.e(TAG, "No stations available for distance calculation")
                 withContext(Dispatchers.Main) {

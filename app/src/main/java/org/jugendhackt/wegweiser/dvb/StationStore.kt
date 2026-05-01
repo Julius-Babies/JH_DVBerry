@@ -15,10 +15,10 @@ import kotlinx.serialization.json.Json
 import org.jugendhackt.wegweiser.R
 import org.jugendhackt.wegweiser.Station
 import java.io.File
-import java.util.concurrent.atomic.AtomicReference
 
 class StationStore(
-    private val context: Context
+    private val context: Context,
+    private val client: HttpClient
 ) {
     private val json = Json {
         ignoreUnknownKeys = true
@@ -27,56 +27,52 @@ class StationStore(
         prettyPrint = true
     }
 
-    private val stationsRef = AtomicReference<List<Station>>(emptyList())
     private val stationsFlow = MutableStateFlow(emptyList<Station>())
 
     init {
         // Start from disk if possible so the app has data before any network refresh runs.
         val initialData = loadInitialStations()
-        stationsRef.set(initialData)
         stationsFlow.value = initialData
     }
 
-    fun getStations(): List<Station> = stationsRef.get()
-
     fun observeStations(): StateFlow<List<Station>> = stationsFlow.asStateFlow()
 
-    suspend fun refreshIfNeeded(client: HttpClient) {
-        val cacheExists = cacheFile().exists()
-        if (cacheExists && !shouldRefresh()) {
+    suspend fun refreshIfNeeded() {
+        val cacheExists = cacheFile.exists()
+        if (cacheExists && !isCacheExpired()) {
             Log.d(TAG, "Skipping station refresh because cache is newer than 1 day")
             return
         }
 
         runCatching {
-            val remoteStops = downloadRemoteStops(client)
+            val remoteStops = downloadRemoteStops()
             // Normalize the remote VVO format into the GeoJSON structure already used by the app.
             val featureCollection = FeatureCollection(
                 type = "FeatureCollection",
                 features = remoteStops.mapNotNull(::toFeature)
             )
 
-            cacheFile().writeText(json.encodeToString(FeatureCollection.serializer(), featureCollection))
-            preferences().edit().putLong(PREF_LAST_REFRESH_AT, System.currentTimeMillis()).apply()
+            cacheFile.writeText(json.encodeToString(FeatureCollection.serializer(), featureCollection))
+            preferences.edit().putLong(PREF_LAST_REFRESH_AT, System.currentTimeMillis()).apply()
 
             val refreshedStations = featureCollection.features.mapNotNull(::toStation)
             publishStations(refreshedStations)
             Log.d(TAG, "Refreshed ${refreshedStations.size} stations")
         }.onFailure { error ->
             Log.e(TAG, "Failed to refresh station cache", error)
-            if (stationsRef.get().isEmpty()) {
+            if (stationsFlow.value.isEmpty()) {
                 publishStations(loadInitialStations())
             }
         }
     }
 
-    private fun shouldRefresh(): Boolean {
-        val lastRefreshAt = preferences().getLong(PREF_LAST_REFRESH_AT, 0L)
+    private fun isCacheExpired(): Boolean {
+        val lastRefreshAt = preferences.getLong(PREF_LAST_REFRESH_AT, 0L)
         return lastRefreshAt == 0L || System.currentTimeMillis() - lastRefreshAt >= REFRESH_INTERVAL_MS
     }
 
     private fun loadStationsFromDisk(): List<Station> {
-        val file = cacheFile()
+        val file = cacheFile
         if (!file.exists()) {
             Log.w(TAG, "Station cache file does not exist")
             return emptyList()
@@ -105,7 +101,7 @@ class StationStore(
         return bundledStations
     }
 
-    private suspend fun downloadRemoteStops(client: HttpClient): List<VvoStop> {
+    private suspend fun downloadRemoteStops(): List<VvoStop> {
         val response = client.get("https://www.vvo-online.de/open_data/VVO_STOPS.JSON")
         check(response.status.isSuccess()) { "Station refresh failed with HTTP ${response.status.value}" }
         return json.decodeFromString(response.bodyAsText())
@@ -170,12 +166,13 @@ class StationStore(
         )
     }
 
-    private fun cacheFile(): File = File(context.filesDir, CACHE_FILE_NAME)
+    private val cacheFile: File
+        get() = File(context.filesDir, CACHE_FILE_NAME)
 
-    private fun preferences() = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val preferences
+        get() = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     private fun publishStations(stations: List<Station>) {
-        stationsRef.set(stations)
         stationsFlow.value = stations
     }
 
