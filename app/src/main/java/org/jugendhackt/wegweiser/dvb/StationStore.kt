@@ -31,6 +31,7 @@ class StationStore(
     private val stationsFlow = MutableStateFlow(emptyList<Station>())
 
     init {
+        // Start from disk if possible so the app has data before any network refresh runs.
         val initialData = loadInitialStations()
         stationsRef.set(initialData)
         stationsFlow.value = initialData
@@ -49,6 +50,7 @@ class StationStore(
 
         runCatching {
             val remoteStops = downloadRemoteStops(client)
+            // Normalize the remote VVO format into the GeoJSON structure already used by the app.
             val featureCollection = FeatureCollection(
                 type = "FeatureCollection",
                 features = remoteStops.mapNotNull(::toFeature)
@@ -95,6 +97,7 @@ class StationStore(
         val cachedStations = loadStationsFromDisk()
         if (cachedStations.isNotEmpty()) return cachedStations
 
+        // Fall back to the bundled snapshot when there is no usable on-device cache yet.
         val bundledStations = loadBundledStations()
         if (bundledStations.isNotEmpty()) {
             Log.d(TAG, "Using bundled fallback stops until refresh completes")
@@ -157,6 +160,7 @@ class StationStore(
             return null
         }
 
+        // Station objects are cached without departures; live departures are resolved separately.
         return Station(
             id = feature.properties.number,
             name = feature.properties.name,
