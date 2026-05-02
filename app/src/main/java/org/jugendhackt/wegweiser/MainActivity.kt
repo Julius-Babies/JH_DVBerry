@@ -2,7 +2,6 @@ package org.jugendhackt.wegweiser
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
@@ -50,10 +49,8 @@ import org.jugendhackt.wegweiser.app.checkPermission
 import org.jugendhackt.wegweiser.language.language
 import org.jugendhackt.wegweiser.sensors.shake.ShakeSensor
 import org.jugendhackt.wegweiser.ui.theme.WegweiserTheme
-import org.koin.androidx.compose.KoinAndroidContext
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.compose.koinInject
-import org.jugendhackt.wegweiser.MainEvent
 
 class MainActivity : AppCompatActivity() {
     val viewModel: MainViewModel by viewModel()
@@ -84,106 +81,104 @@ class MainActivity : AppCompatActivity() {
         }
 
         setContent {
-            KoinAndroidContext {
-                val shakeSensor = koinInject<ShakeSensor>()
-                LaunchedEffect(42) {
-                    var timeThreshold = 0L
-                    shakeSensor.add {
-                        if (System.nanoTime() - timeThreshold < 1500000000L) return@add
-                        if (viewModel.nearestStops == null) return@add
-                        timeThreshold = System.nanoTime()
-                        viewModel.onEvent(MainEvent.TogglePlayPause)
-                        Log.d("ACC", "ButtonToggle by Shaking")
-                    }
+            val shakeSensor = koinInject<ShakeSensor>()
+            LaunchedEffect(42) {
+                var timeThreshold = 0L
+                shakeSensor.add {
+                    if (System.nanoTime() - timeThreshold < 1500000000L) return@add
+                    if (viewModel.nearestStops == null) return@add
+                    timeThreshold = System.nanoTime()
+                    viewModel.onEvent(MainEvent.TogglePlayPause)
+                    Log.d("ACC", "ButtonToggle by Shaking")
                 }
+            }
 
-                val language = language(this)
+            val language = language(this)
 
-                WegweiserTheme {
-                    Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+            WegweiserTheme {
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                    ) {
                         Column(
                             modifier = Modifier
-                                .fillMaxSize()
-                                .padding(innerPadding)
+                                .fillMaxWidth()
+                                .weight(1f)
                         ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f)
-                            ) {
-                                AnimatedContent(
-                                    targetState = viewModel.nearestStops == null
-                                ) { isLoading ->
-                                    if (isLoading) {
-                                        Box(
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier
-                                                    .padding(24.dp)
-                                                    .fillMaxSize(),
-                                                strokeWidth = 16.dp
-                                            )
-                                        }
-                                        return@AnimatedContent
-                                    }
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .verticalScroll(rememberScrollState())
-                                            .padding(16.dp)
+                            AnimatedContent(
+                                targetState = viewModel.nearestStops == null
+                            ) { isLoading ->
+                                if (isLoading) {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
                                     ) {
-                                        viewModel.nearestStops?.let {
-                                            Text(
-                                                text = it.name,
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .basicMarquee(iterations = Int.MAX_VALUE),
-                                                textAlign = TextAlign.Center,
-                                                style = MaterialTheme.typography.displayLarge
-                                            )
-                                            Spacer(Modifier.height(16.dp))
-                                            Text(
-                                                text = "${language.getString("ui.next_departures")}: ",
-                                                style = MaterialTheme.typography.titleLarge
-                                            )
-                                            Text(
-                                                text = buildString {
-                                                    it.departures.forEachIndexed { i, departure ->
-                                                        if (i > 0) append("\n")
-                                                        append(departure.line)
-                                                        append(": ")
-                                                        append(departure.destination)
-                                                        append(" (")
-                                                        append(departure.time)
-                                                        append(") ${language.getString("ui.at")} ${when (departure.platformType) {
-                                                            "Platform", "Tram" -> language.getString("ui.platform")
-                                                            "Railtrack" -> language.getString("ui.railtrack")
-                                                            else -> departure.platformType
-                                                        }
-                                                        } ${departure.platformName}")
-                                                        if (departure.isCancelled) append(" ${language.getString("ui.isCancelled")}") else if (departure.delayInMinutes > 0) append(
-                                                            " +${departure.delayInMinutes}${language.getString("ui.abbreviation_minutes")}"
-                                                        ) else if (departure.delayInMinutes < 0) append(
-                                                            " ${departure.delayInMinutes}${language.getString("ui.abbreviation_minutes")}"
-                                                        )
+                                        CircularProgressIndicator(
+                                            modifier = Modifier
+                                                .padding(24.dp)
+                                                .fillMaxSize(),
+                                            strokeWidth = 16.dp
+                                        )
+                                    }
+                                    return@AnimatedContent
+                                }
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .verticalScroll(rememberScrollState())
+                                        .padding(16.dp)
+                                ) {
+                                    viewModel.nearestStops?.let {
+                                        Text(
+                                            text = it.name,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .basicMarquee(iterations = Int.MAX_VALUE),
+                                            textAlign = TextAlign.Center,
+                                            style = MaterialTheme.typography.displayLarge
+                                        )
+                                        Spacer(Modifier.height(16.dp))
+                                        Text(
+                                            text = "${language.getString("ui.next_departures")}: ",
+                                            style = MaterialTheme.typography.titleLarge
+                                        )
+                                        Text(
+                                            text = buildString {
+                                                it.departures.forEachIndexed { i, departure ->
+                                                    if (i > 0) append("\n")
+                                                    append(departure.line)
+                                                    append(": ")
+                                                    append(departure.destination)
+                                                    append(" (")
+                                                    append(departure.time)
+                                                    append(") ${language.getString("ui.at")} ${when (departure.platformType) {
+                                                        "Platform", "Tram" -> language.getString("ui.platform")
+                                                        "Railtrack" -> language.getString("ui.railtrack")
+                                                        else -> departure.platformType
                                                     }
+                                                    } ${departure.platformName}")
+                                                    if (departure.isCancelled) append(" ${language.getString("ui.isCancelled")}") else if (departure.delayInMinutes > 0) append(
+                                                        " +${departure.delayInMinutes}${language.getString("ui.abbreviation_minutes")}"
+                                                    ) else if (departure.delayInMinutes < 0) append(
+                                                        " ${departure.delayInMinutes}${language.getString("ui.abbreviation_minutes")}"
+                                                    )
                                                 }
-                                            )
-                                        }
+                                            }
+                                        )
                                     }
                                 }
                             }
-
-                            PlayPauseButton(
-                                viewModel.isPlaying,
-                                viewModel.canPlay,
-                                language = language
-                            ) { viewModel.onEvent(MainEvent.TogglePlayPause) }
-
-                            Spacer(modifier = Modifier.height(24.dp))
                         }
+
+                        PlayPauseButton(
+                            viewModel.isPlaying,
+                            viewModel.canPlay,
+                            language = language
+                        ) { viewModel.onEvent(MainEvent.TogglePlayPause) }
+
+                        Spacer(modifier = Modifier.height(24.dp))
                     }
                 }
             }
