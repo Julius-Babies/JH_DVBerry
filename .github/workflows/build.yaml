@@ -17,40 +17,13 @@ jobs:
     steps:
       # Checkout the code
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
-      # Setup Java
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - uses: ./.github/actions/setup-project
+        name: Setup Project
         with:
-          distribution: 'temurin'
-          java-version: 17
-          cache: 'gradle'
-          cache-dependency-path: |
-            ${{ github.workspace }}/gradle/wrapper/gradle-wrapper.properties
-            ${{ github.workspace }}/**/*.gradle*
-
-      # Setup Android SDK
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v2
-
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
-
-      - name: Restore playstore.keystore.jks
-        run: echo ${{secrets.KEYSTORE_FILE}} | base64 -d > ${GITHUB_WORKSPACE}/keystore.jks
-
-      - name: Add keystore information to local.properties
-        run: echo "signing.default.file=${GITHUB_WORKSPACE}/keystore.jks" >> local.properties
-
-      - name: Add keystore password to local.properties
-        run: echo "signing.default.storepassword=${{secrets.KEYSTORE_PASSWORD}}" >> local.properties
-
-      - name: Add keystore alias to local.properties
-        run: echo "signing.default.keyalias=key0" >> local.properties
-
-      - name: Add keystore key password to local.properties
-        run: echo "signing.default.keypassword=${{secrets.KEYSTORE_PASSWORD}}" >> local.properties
+          keystore_file: ${{ secrets.KEYSTORE_FILE }}
+          keystore_password: ${{ secrets.KEYSTORE_PASSWORD }}
 
       # Build the app
       - name: Build the app
