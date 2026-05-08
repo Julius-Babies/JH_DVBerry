@@ -12,6 +12,7 @@ class TTS(context: Context) {
 
     private val textToSpeech: TextToSpeech
     private var isSpeaking = false
+    private var isInitialized = false
     private val language = language(context)
 
     init {
@@ -24,9 +25,13 @@ class TTS(context: Context) {
                 )
                 if (langResult == TextToSpeech.LANG_MISSING_DATA || langResult == TextToSpeech.LANG_NOT_SUPPORTED) {
                     Log.e("TTS", "Language not supported or data missing.")
+                    isInitialized = false
+                } else {
+                    isInitialized = true
                 }
             } else {
-                throw RuntimeException("Failed to initialize TextToSpeech: $status")
+                Log.e("TTS", "Failed to initialize TextToSpeech: $status")
+                isInitialized = false
             }
         })
     }
@@ -35,6 +40,12 @@ class TTS(context: Context) {
      * Will not speak if an output is already in progress
      */
     fun speak(text: String, onFinished: (() -> Unit)? = null) {
+        if (!isInitialized) {
+            Log.w("TTS", "TTS not initialized, skipping speak request.")
+            onFinished?.invoke()
+            return
+        }
+
         textToSpeech.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {}
 
@@ -56,6 +67,9 @@ class TTS(context: Context) {
     }
 
     fun stop() {
+        if (!isInitialized) {
+            return
+        }
         textToSpeech.stop()
         isSpeaking = false
     }
