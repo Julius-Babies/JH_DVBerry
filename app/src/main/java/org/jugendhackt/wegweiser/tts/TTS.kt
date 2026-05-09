@@ -23,7 +23,7 @@ class TTS(context: Context) {
     private var isInitialized = false
     private var hasPlayedUnavailableNotice = false
     private val language = language(this@TTS.context)
-    private val forceTtsUnavailableForTesting = true
+    private val forceTtsUnavailableForTesting = false
 
     init {
         textToSpeech = TextToSpeech(this@TTS.context, OnInitListener { status ->
